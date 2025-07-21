@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Tracker with Admin Controls</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Barcode/QR Code scanning library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- QR Code Generation Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
+    <!-- CSV Parsing Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #reader video { width: 100% !important; height: auto !important; border-radius: 0.5rem; }
+        .modal-enter { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @media print {
+            body * { visibility: hidden; }
+            #qr-code-print-area, #qr-code-print-area * { visibility: visible; }
+            #qr-code-print-area { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="min-h-screen flex items-center justify-center">
+        <div class="text-center">
+            <h2 class="text-2xl font-semibold text-white">Loading Inventory System...</h2>
+            <p class="text-gray-400 mt-2">Please wait while we connect to the server.</p>
+        </div>
+    </div>
+
+
+    <!-- Main App Screen -->
+    <div id="app-screen" class="hidden">
+        <div class="container mx-auto p-4 max-w-7xl">
+            <header class="text-center my-6 relative">
+                <svg viewBox="0 0 300 70" class="h-16 w-auto mx-auto mb-4" xmlns="http://www.w3.org/2000/svg">
+                  <style>.logo-font { font-family: 'Inter', sans-serif; font-style: italic; font-weight: 700; }</style>
+                  <text x="0" y="55" class="logo-font" style="font-size: 48px;" fill="#E53E3E">Mi</text>
+                  <text x="75" y="35" class="logo-font" style="font-size: 28px;" fill="#F3F4F6">REPAIR &</text>
+                  <text x="75" y="65" class="logo-font" style="font-size: 28px;" fill="#F3F4F6">SERVICES</text>
+                </svg>
+                <h1 class="text-4xl font-bold text-white">Inventory Tracker</h1>
+                <div class="absolute top-0 right-0 flex space-x-4">
+                    <button id="manage-users-btn" class="hidden bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Manage Users</button>
+                    <button id="logout-btn" class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors">Log Out</button>
+                </div>
+                <p class="text-gray-400 mt-2">Shared inventory with QR code scanning and generation.</p>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-1 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                    <h2 class="text-2xl font-semibold text-white mb-4">Scanner</h2>
+                    <div id="reader" class="w-full aspect-video bg-gray-700 rounded-lg mb-4 overflow-hidden"></div>
+                    <button id="start-scan-btn" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"><span>Start Scanning</span></button>
+                    <div id="scan-result" class="mt-4 p-4 rounded-lg text-center font-medium"></div>
+                </div>
+                <div class="lg:col-span-2 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                    <div class="flex justify-between items-center mb-2 flex-wrap gap-4">
+                        <h2 class="text-2xl font-semibold text-white">Current Stock</h2>
+                        <div class="flex space-x-2">
+                           <button id="import-csv-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">Import CSV</button>
+                           <button id="export-csv-btn" class="bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">Export CSV</button>
+                           <button id="add-item-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">+ Add New Part</button>
+                        </div>
+                    </div>
+                    <div id="total-value-display" class="text-lg text-gray-300 mb-4 text-right pr-2">Total Inventory Value: $0.00</div>
+                    <!-- Tabs for Inventory View -->
+                    <div class="border-b border-gray-700 mb-4">
+                        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                            <button id="tab-all" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-red-500 text-white">
+                                All Items
+                            </button>
+                            <button id="tab-reorder" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-white hover:border-gray-300">
+                                Re-Order Needed
+                                <span id="reorder-count-badge" class="ml-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
+                            </button>
+                        </nav>
+                    </div>
+                    <div id="inventory-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+                </div>
+            </div>
+            <div id="user-info" class="text-center mt-6 text-xs text-gray-500"></div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="add-item-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-lg modal-enter border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-white">Add New Inventory Part</h3>
+            <form id="add-item-form" class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                <div class="sm:col-span-2"><label for="partNumber" class="block text-sm font-medium text-gray-300 mb-1">Part Number (Unique ID)</label><input type="text" id="partNumber" name="partNumber" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" required></div>
+                <div class="sm:col-span-2"><label for="partDescription" class="block text-sm font-medium text-gray-300 mb-1">Part Description</label><input type="text" id="partDescription" name="partDescription" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" required></div>
+                <div><label for="manufacturer" class="block text-sm font-medium text-gray-300 mb-1">Manufacturer</label><input type="text" id="manufacturer" name="manufacturer" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
+                <div><label for="binLocation" class="block text-sm font-medium text-gray-300 mb-1">Bin Location</label><input type="text" id="binLocation" name="binLocation" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
+                <div><label for="cost" class="block text-sm font-medium text-gray-300 mb-1">Cost (per unit)</label><input type="number" id="cost" name="cost" min="0" step="0.01" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
+                <div><label for="quantity" class="block text-sm font-medium text-gray-300 mb-1">Current Quantity</label><input type="number" id="quantity" name="quantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" required></div>
+                <div><label for="minQuantity" class="block text-sm font-medium text-gray-300 mb-1">Min Stock Level</label><input type="number" id="minQuantity" name="minQuantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
+                <div><label for="maxQuantity" class="block text-sm font-medium text-gray-300 mb-1">Max Stock Level</label><input type="number" id="maxQuantity" name="maxQuantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
+                <div class="sm:col-span-2 flex justify-end space-x-4 mt-4"><button type="button" id="cancel-modal-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors">Cancel</button><button type="submit" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors">Save Part</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Item Details & QR Code Modal -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden"><div id="qr-code-print-area" class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md modal-enter border border-gray-700"><h3 id="details-title" class="text-2xl font-bold mb-2 text-white text-center">Part Details</h3><p id="details-part-number" class="text-center text-gray-400 mb-4"></p><div id="details-qr-code" class="bg-white p-4 rounded-lg w-64 h-64 mx-auto"></div><div class="text-center mt-4"><button id="print-qr-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">Print QR Code</button><button id="close-details-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors ml-4">Close</button></div></div></div>
+
+    <!-- Manage Users Modal -->
+    <div id="manage-users-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-2xl modal-enter border border-gray-700">
+            <h3 class="text-2xl font-bold mb-6 text-white">Manage Users</h3>
+            <div id="users-list" class="space-y-3 max-h-[60vh] overflow-y-auto"></div>
+            <div class="text-right mt-6">
+                <button id="close-users-modal-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Import CSV Modal -->
+    <div id="import-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-lg modal-enter border border-gray-700">
+            <h3 class="text-2xl font-bold mb-4 text-white">Import from CSV</h3>
+            <p class="text-gray-400 mb-4">Upload a CSV file with your inventory data. The system will use the 'partNumber' to add new items or update existing ones.</p>
+            <div class="mb-4">
+                <button id="download-template-btn" class="text-sm text-purple-400 hover:text-purple-300">Download CSV Template</button>
+            </div>
+            <div class="mb-4">
+                <label for="csv-file-input" class="block text-sm font-medium text-gray-300 mb-1">CSV File</label>
+                <input type="file" id="csv-file-input" accept=".csv" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"/>
+            </div>
+            <div id="import-status" class="mt-4 text-sm"></div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button type="button" id="cancel-import-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Cancel</button>
+                <button type="button" id="process-import-btn" class="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700">Upload & Process</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp, increment, getDocs, deleteDoc, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Global State ---
+        let db, auth, appId, currentUser = null;
+        let html5QrCode;
+        let isScannerRunning = false;
+        let inventoryCollectionRef, usersCollectionRef;
+        let inventoryDocs = []; // To store the latest snapshot
+        let currentView = 'all'; // 'all' or 'reorder'
+
+        // --- DOM Element References ---
+        const loadingScreen = document.getElementById('loading-screen');
+        const appScreen = document.getElementById('app-screen');
+        const logoutBtn = document.getElementById('logout-btn');
+        const manageUsersBtn = document.getElementById('manage-users-btn');
+        const manageUsersModal = document.getElementById('manage-users-modal');
+        const closeUsersModalBtn = document.getElementById('close-users-modal-btn');
+        const usersListEl = document.getElementById('users-list');
+        const startScanBtn = document.getElementById('start-scan-btn');
+        const scanResultEl = document.getElementById('scan-result');
+        const inventoryListEl = document.getElementById('inventory-list');
+        const addItemBtn = document.getElementById('add-item-btn');
+        const addItemModal = document.getElementById('add-item-modal');
+        const cancelModalBtn = document.getElementById('cancel-modal-btn');
+        const addItemForm = document.getElementById('add-item-form');
+        const partNumberInput = document.getElementById('partNumber');
+        const userInfoEl = document.getElementById('user-info');
+        const detailsModal = document.getElementById('details-modal');
+        const closeDetailsBtn = document.getElementById('close-details-btn');
+        const printQrBtn = document.getElementById('print-qr-btn');
+        const detailsQrCodeEl = document.getElementById('details-qr-code');
+        const detailsPartNumberEl = document.getElementById('details-part-number');
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        const importCsvBtn = document.getElementById('import-csv-btn');
+        const importModal = document.getElementById('import-modal');
+        const cancelImportBtn = document.getElementById('cancel-import-btn');
+        const processImportBtn = document.getElementById('process-import-btn');
+        const csvFileInput = document.getElementById('csv-file-input');
+        const downloadTemplateBtn = document.getElementById('download-template-btn');
+        const importStatus = document.getElementById('import-status');
+        const tabAll = document.getElementById('tab-all');
+        const tabReorder = document.getElementById('tab-reorder');
+        const reorderCountBadge = document.getElementById('reorder-count-badge');
+        const totalValueDisplay = document.getElementById('total-value-display');
+
+
+        // --- App Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFirebase();
+            setupEventListeners();
+            html5QrCode = new Html5Qrcode("reader");
+        });
+        
+        async function setupFirebase() {
+            try {
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-inventory-app';
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                inventoryCollectionRef = collection(db, "artifacts", appId, "public", "data", "inventory");
+                usersCollectionRef = collection(db, "artifacts", appId, "public", "data", "users");
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        let userProfile = await getUserProfile(user.uid);
+                        if (!userProfile) {
+                            userProfile = await setupNewUser(user);
+                        }
+                        
+                        if (userProfile) {
+                            currentUser = { uid: user.uid, ...userProfile };
+                            showApp();
+                        } else {
+                            loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Could not load user profile. Please refresh.</div>`;
+                        }
+                    } else {
+                        currentUser = null;
+                        showLoadingScreen();
+                    }
+                });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                document.body.innerHTML = `<div class="text-center p-8 text-red-500">Error initializing the application. Please check the console.</div>`;
+            }
+        }
+
+        function setupEventListeners() {
+            logoutBtn.addEventListener('click', handleLogout);
+            manageUsersBtn.addEventListener('click', showUsersModal);
+            closeUsersModalBtn.addEventListener('click', () => manageUsersModal.classList.add('hidden'));
+            startScanBtn.addEventListener('click', toggleScanner);
+            addItemBtn.addEventListener('click', () => showAddItemModal());
+            cancelModalBtn.addEventListener('click', hideAddItemModal);
+            addItemForm.addEventListener('submit', handleSaveItem);
+            closeDetailsBtn.addEventListener('click', hideDetailsModal);
+            printQrBtn.addEventListener('click', () => window.print());
+            exportCsvBtn.addEventListener('click', handleExport);
+            importCsvBtn.addEventListener('click', () => importModal.classList.remove('hidden'));
+            cancelImportBtn.addEventListener('click', () => importModal.classList.add('hidden'));
+            downloadTemplateBtn.addEventListener('click', handleDownloadTemplate);
+            processImportBtn.addEventListener('click', handleProcessImport);
+            tabAll.addEventListener('click', () => setView('all'));
+            tabReorder.addEventListener('click', () => setView('reorder'));
+        }
+
+        // --- UI Control ---
+        function showApp() {
+            loadingScreen.classList.add('hidden');
+            appScreen.classList.remove('hidden');
+            userInfoEl.innerHTML = `<p>Signed in as: <strong class="select-all">${currentUser.uid}</strong> (${currentUser.role})</p>`;
+            
+            if (currentUser.role === 'admin') {
+                manageUsersBtn.classList.remove('hidden');
+            } else {
+                manageUsersBtn.classList.add('hidden');
+            }
+            setupInventoryListener();
+        }
+
+        function showLoadingScreen() {
+            appScreen.classList.add('hidden');
+            loadingScreen.classList.remove('hidden');
+        }
+
+        function setView(view) {
+            currentView = view;
+            if (view === 'all') {
+                tabAll.classList.add('border-red-500', 'text-white');
+                tabAll.classList.remove('border-transparent', 'text-gray-400');
+                tabReorder.classList.add('border-transparent', 'text-gray-400');
+                tabReorder.classList.remove('border-red-500', 'text-white');
+            } else { // 'reorder'
+                tabReorder.classList.add('border-red-500', 'text-white');
+                tabReorder.classList.remove('border-transparent', 'text-gray-400');
+                tabAll.classList.add('border-transparent', 'text-gray-400');
+                tabAll.classList.remove('border-red-500', 'text-white');
+            }
+            renderInventory(inventoryDocs);
+        }
+
+        // --- Authentication & User Profile Logic ---
+        async function handleLogout() {
+            await signOut(auth);
+            window.location.reload();
+        }
+        
+        async function setupNewUser(user) {
+            const configDocRef = doc(db, "artifacts", appId, "public", "data", "system", "config");
+            const userDocRef = doc(usersCollectionRef, user.uid);
+            let newUserProfile = null;
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const configDoc = await transaction.get(configDocRef);
+                    let role = 'user';
+
+                    if (!configDoc.exists() || !configDoc.data().adminAssigned) {
+                        role = 'admin';
+                        transaction.set(configDocRef, { adminAssigned: true }, { merge: true });
+                    }
+                    
+                    newUserProfile = {
+                        uid: user.uid,
+                        role: role,
+                        createdAt: serverTimestamp()
+                    };
+                    transaction.set(userDocRef, newUserProfile);
+                });
+                return newUserProfile;
+            } catch (e) {
+                console.error("Transaction failed to create user profile: ", e);
+                loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Permission denied when setting up user profile. Please check Firestore security rules.</div>`;
+                return null;
+            }
+        }
+
+        async function getUserProfile(uid) {
+            const userDocRef = doc(usersCollectionRef, uid);
+            const docSnap = await getDoc(userDocRef);
+            return docSnap.exists() ? docSnap.data() : null;
+        }
+
+        // --- Admin User Management ---
+        async function showUsersModal() {
+            usersListEl.innerHTML = '<p>Loading users...</p>';
+            manageUsersModal.classList.remove('hidden');
+            
+            const querySnapshot = await getDocs(usersCollectionRef);
+            usersListEl.innerHTML = '';
+            querySnapshot.forEach((doc) => {
+                const user = doc.data();
+                const userEl = document.createElement('div');
+                userEl.className = 'p-3 border border-gray-700 rounded-lg flex justify-between items-center';
+                userEl.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-white">User ID: ${user.uid}</p>
+                        <p class="text-sm text-gray-400">Role: ${user.role}</p>
+                    </div>
+                    ${(currentUser.uid !== doc.id && user.role !== 'admin') ? `<button data-uid="${doc.id}" class="delete-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Delete</button>` : ''}
+                `;
+                usersListEl.appendChild(userEl);
+            });
+
+            document.querySelectorAll('.delete-user-btn').forEach(btn => {
+                btn.addEventListener('click', handleDeleteUser);
+            });
+        }
+
+        async function handleDeleteUser(e) {
+            const uidToDelete = e.target.dataset.uid;
+            
+            const confirmed = prompt(`To confirm deletion, please type DELETE and press OK. This cannot be undone.\nUser ID: ${uidToDelete}`);
+            if (confirmed === "DELETE") {
+                 try {
+                    await deleteDoc(doc(usersCollectionRef, uidToDelete));
+                    showScanMessage(`User ${uidToDelete} deleted.`, 'success');
+                    showUsersModal();
+                } catch (error) {
+                    console.error("Error deleting user:", error);
+                    showScanMessage('Failed to delete user.', 'error');
+                }
+            } else {
+                showScanMessage('Deletion cancelled.', 'info');
+            }
+        }
+
+        // --- CSV Import/Export ---
+        function handleDownloadTemplate() {
+            const headers = "partNumber,partDescription,manufacturer,binLocation,cost,quantity,minQuantity,maxQuantity";
+            const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "inventory_template.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function handleExport() {
+            showScanMessage('Generating CSV export...', 'info');
+            try {
+                const querySnapshot = await getDocs(inventoryCollectionRef);
+                let csvContent = "partNumber,partDescription,manufacturer,binLocation,cost,quantity,minQuantity,maxQuantity,createdAt,lastUpdated\n";
+                
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const row = [
+                        doc.id,
+                        `"${(data.partDescription || '').replace(/"/g, '""')}"`,
+                        `"${(data.manufacturer || '').replace(/"/g, '""')}"`,
+                        `"${(data.binLocation || '').replace(/"/g, '""')}"`,
+                        data.cost || 0,
+                        data.quantity || 0,
+                        data.minQuantity || 0,
+                        data.maxQuantity || 0,
+                        data.createdAt ? data.createdAt.toDate().toISOString() : '',
+                        data.lastUpdated ? data.lastUpdated.toDate().toISOString() : ''
+                    ].join(',');
+                    csvContent += row + "\n";
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `inventory_export_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showScanMessage('Export successful!', 'success');
+            } catch (error) {
+                console.error("Error exporting CSV:", error);
+                showScanMessage('Export failed. See console for details.', 'error');
+            }
+        }
+
+        function handleProcessImport() {
+            const file = csvFileInput.files[0];
+            if (!file) {
+                importStatus.textContent = "Please select a file first.";
+                importStatus.className = "text-red-400";
+                return;
+            }
+
+            processImportBtn.disabled = true;
+            processImportBtn.textContent = "Processing...";
+            importStatus.textContent = "Parsing file...";
+            importStatus.className = "text-yellow-400";
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    importStatus.textContent = `Found ${results.data.length} rows. Uploading to database...`;
+                    const batch = writeBatch(db);
+                    let processedCount = 0;
+
+                    for (const row of results.data) {
+                        const partNumber = row.partNumber;
+                        if (!partNumber) continue;
+
+                        const itemDocRef = doc(inventoryCollectionRef, partNumber.trim());
+                        const itemData = {
+                            partDescription: row.partDescription || '',
+                            manufacturer: row.manufacturer || '',
+                            binLocation: row.binLocation || '',
+                            cost: parseFloat(row.cost) || 0,
+                            quantity: parseInt(row.quantity, 10) || 0,
+                            minQuantity: parseInt(row.minQuantity, 10) || 0,
+                            maxQuantity: parseInt(row.maxQuantity, 10) || 0,
+                            lastUpdated: serverTimestamp(),
+                        };
+                        
+                        batch.set(itemDocRef, itemData, { merge: true });
+                        processedCount++;
+                    }
+
+                    try {
+                        await batch.commit();
+                        importStatus.textContent = `Successfully processed ${processedCount} items!`;
+                        importStatus.className = "text-green-400";
+                        setTimeout(() => {
+                            importModal.classList.add('hidden');
+                            processImportBtn.disabled = false;
+                            processImportBtn.textContent = "Upload & Process";
+                        }, 2000);
+                    } catch (error) {
+                        console.error("Error committing batch:", error);
+                        importStatus.textContent = "Error uploading data. See console for details.";
+                        importStatus.className = "text-red-400";
+                        processImportBtn.disabled = false;
+                        processImportBtn.textContent = "Upload & Process";
+                    }
+                },
+                error: (error) => {
+                    console.error("CSV Parsing Error:", error);
+                    importStatus.textContent = "Failed to parse CSV file.";
+                    importStatus.className = "text-red-400";
+                    processImportBtn.disabled = false;
+                    processImportBtn.textContent = "Upload & Process";
+                }
+            });
+        }
+
+
+        // --- Inventory Functions ---
+        function setupInventoryListener() {
+            onSnapshot(query(inventoryCollectionRef), (snapshot) => {
+                inventoryDocs = snapshot.docs;
+                
+                let reorderCount = 0;
+                let totalValue = 0;
+                inventoryDocs.forEach(doc => {
+                    const item = doc.data();
+                    if (item.quantity <= item.minQuantity && item.minQuantity > 0) {
+                        reorderCount++;
+                    }
+                    totalValue += (item.quantity || 0) * (item.cost || 0);
+                });
+
+                totalValueDisplay.textContent = `Total Inventory Value: $${totalValue.toFixed(2)}`;
+                if (reorderCount > 0) {
+                    reorderCountBadge.textContent = reorderCount;
+                    reorderCountBadge.classList.remove('hidden');
+                } else {
+                    reorderCountBadge.classList.add('hidden');
+                }
+                
+                renderInventory(inventoryDocs);
+            });
+        }
+        
+        function renderInventory(docs) {
+            let docsToRender = docs;
+
+            if (currentView === 'reorder') {
+                docsToRender = docs.filter(doc => {
+                    const item = doc.data();
+                    return item.quantity <= item.minQuantity && item.minQuantity > 0;
+                });
+            }
+
+            inventoryListEl.innerHTML = '';
+            if (docsToRender.length === 0) {
+                const message = currentView === 'reorder' 
+                    ? "No items need to be re-ordered." 
+                    : "No items in inventory. Add a part to begin.";
+                inventoryListEl.innerHTML = `<p class="text-gray-500 text-center py-8">${message}</p>`;
+                return;
+            }
+
+            const sortedDocs = docsToRender.sort((a, b) => a.data().partDescription.toLowerCase().localeCompare(b.data().partDescription.toLowerCase()));
+            
+            sortedDocs.forEach(doc => {
+                const item = doc.data();
+                let stockStatusClass = 'bg-green-500';
+                if (item.quantity <= item.minQuantity && item.minQuantity > 0) stockStatusClass = 'bg-red-500 animate-pulse';
+                else if (item.quantity > item.maxQuantity && item.maxQuantity > 0) stockStatusClass = 'bg-yellow-500';
+
+                const itemEl = document.createElement('div');
+                itemEl.className = 'p-4 border border-gray-700 rounded-lg grid grid-cols-4 gap-4 items-center cursor-pointer hover:bg-gray-700/50 transition-colors';
+                itemEl.innerHTML = `
+                    <div class="col-span-2">
+                        <p class="font-semibold text-white">${item.partDescription}</p>
+                        <p class="text-sm text-gray-400">P/N: ${doc.id}</p>
+                        <p class="text-sm text-gray-500">${item.manufacturer || 'N/A'} | Bin: ${item.binLocation || 'N/A'}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-red-500">${item.quantity}</p>
+                        <p class="text-xs text-gray-500">In Stock</p>
+                    </div>
+                    <div class="flex justify-end"><span class="w-4 h-4 rounded-full ${stockStatusClass}" title="Stock Status"></span></div>
+                `;
+                itemEl.addEventListener('click', () => showDetailsModal(doc.id));
+                inventoryListEl.appendChild(itemEl);
+            });
+        }
+
+        async function toggleScanner() {
+            if (isScannerRunning) {
+                try { await html5QrCode.stop(); isScannerRunning = false; startScanBtn.innerHTML = `<span>Start Scanning</span>`; startScanBtn.classList.replace('bg-gray-700', 'bg-red-600'); } catch (err) { console.error("Error stopping scanner:", err); }
+            } else {
+                startScanBtn.disabled = true; startScanBtn.textContent = 'Starting...';
+                try {
+                    await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, handleScannedBarcode);
+                    isScannerRunning = true; startScanBtn.innerHTML = `<span>Stop Scanning</span>`; startScanBtn.classList.replace('bg-red-600', 'bg-gray-700');
+                } catch (err) { showScanMessage("Could not start camera.", 'error'); } finally { startScanBtn.disabled = false; }
+            }
+        }
+
+        async function handleScannedBarcode(decodedText) {
+            const itemDocRef = doc(inventoryCollectionRef, decodedText);
+            try {
+                const docSnap = await getDoc(itemDocRef);
+                if (docSnap.exists()) {
+                    await updateDoc(itemDocRef, { quantity: increment(1), lastUpdated: serverTimestamp() });
+                    const item = docSnap.data();
+                    showScanMessage(`✅ Counted: ${item.partDescription} (New Qty: ${item.quantity + 1})`, 'success');
+                } else {
+                    showScanMessage(`⚠️ Part Number not found.`, 'warning'); showAddItemModal(decodedText);
+                }
+            } catch (error) { showScanMessage(`❌ Error processing scan.`, 'error'); }
+        }
+        
+        async function handleSaveItem(e) {
+            e.preventDefault();
+            const partNumber = addItemForm.partNumber.value.trim();
+            if (!partNumber) { showScanMessage('Part Number is required.', 'error'); return; }
+            const itemData = {
+                partDescription: addItemForm.partDescription.value.trim(),
+                manufacturer: addItemForm.manufacturer.value.trim(),
+                binLocation: addItemForm.binLocation.value.trim(),
+                cost: parseFloat(addItemForm.cost.value) || 0,
+                quantity: parseInt(addItemForm.quantity.value, 10) || 0,
+                minQuantity: parseInt(addItemForm.minQuantity.value, 10) || 0,
+                maxQuantity: parseInt(addItemForm.maxQuantity.value, 10) || 0,
+                lastUpdated: serverTimestamp()
+            };
+            const itemDocRef = doc(inventoryCollectionRef, partNumber);
+            try {
+                const docSnap = await getDoc(itemDocRef);
+                if (!docSnap.exists()) {
+                    itemData.createdAt = serverTimestamp();
+                }
+                await setDoc(itemDocRef, itemData, { merge: true });
+                showScanMessage(`Part ${partNumber} saved!`, 'success');
+                hideAddItemModal();
+                showDetailsModal(partNumber);
+            } catch (error) { showScanMessage('Failed to save part.', 'error'); console.error(error) }
+        }
+        
+        function showScanMessage(message, type = 'info') {
+            scanResultEl.textContent = message;
+            let classes = 'mt-4 p-4 rounded-lg text-center font-medium border ';
+            switch(type) {
+                case 'success': classes += 'bg-green-900/50 text-green-300 border-green-700'; break;
+                case 'warning': classes += 'bg-yellow-900/50 text-yellow-300 border-yellow-700'; break;
+                case 'error': classes += 'bg-red-900/50 text-red-300 border-red-700'; break;
+                default: classes += 'bg-gray-700 text-gray-200 border-gray-600';
+            }
+            scanResultEl.className = classes;
+            setTimeout(() => { scanResultEl.textContent = ''; }, 5000);
+        }
+
+        function showAddItemModal(partNumber = null) {
+            addItemForm.reset();
+            partNumberInput.disabled = false;
+            if (partNumber) { partNumberInput.value = partNumber; }
+            addItemModal.classList.remove('hidden');
+        }
+
+        function hideAddItemModal() { addItemModal.classList.add('hidden'); }
+
+        function showDetailsModal(partNumber) {
+            detailsPartNumberEl.textContent = `P/N: ${partNumber}`;
+            detailsQrCodeEl.innerHTML = '';
+            try {
+                const qr = qrcode(4, 'L');
+                qr.addData(partNumber);
+                qr.make();
+                detailsQrCodeEl.innerHTML = qr.createImgTag(6, 4);
+            } catch(e) { detailsQrCodeEl.innerHTML = "Error generating QR Code."; }
+            detailsModal.classList.remove('hidden');
+        }
+
+        function hideDetailsModal() { detailsModal.classList.add('hidden'); }
+
+    </script>
+</body>
+</html>
