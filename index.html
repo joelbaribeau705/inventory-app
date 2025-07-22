@@ -30,11 +30,39 @@
 </head>
 <body class="bg-gray-900 text-gray-200">
 
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="min-h-screen flex items-center justify-center">
-        <div class="text-center">
-            <h2 class="text-2xl font-semibold text-white">Loading Inventory System...</h2>
-            <p class="text-gray-400 mt-2">Please wait while we connect to the server.</p>
+    <!-- Auth Screen (Login/Register) -->
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center">
+        <div class="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+            <div class="text-center">
+                 <svg viewBox="0 0 300 70" class="h-12 w-auto mx-auto mb-4" xmlns="http://www.w3.org/2000/svg">
+                    <style>.logo-font { font-family: 'Inter', sans-serif; font-style: italic; font-weight: 700; }</style>
+                    <text x="0" y="55" class="logo-font" style="font-size: 48px;" fill="#E53E3E">Mi</text>
+                    <text x="75" y="35" class="logo-font" style="font-size: 28px;" fill="#F3F4F6">REPAIR &</text>
+                    <text x="75" y="65" class="logo-font" style="font-size: 28px;" fill="#F3F4F6">SERVICES</text>
+                </svg>
+                <h2 id="auth-title" class="mt-6 text-center text-3xl font-extrabold text-white">Sign in to your account</h2>
+                <p id="auth-subtitle" class="mt-2 text-center text-sm text-gray-400">
+                    Or <a href="#" id="toggle-auth-mode" class="font-medium text-red-500 hover:text-red-400">request access</a>
+                </p>
+            </div>
+            <form id="auth-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="email-address" class="sr-only">Email address</label>
+                        <input id="email-address" name="email" type="email" autocomplete="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-t-md focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" placeholder="Email address">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Password</label>
+                        <input id="password" name="password" type="password" autocomplete="current-password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-b-md focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" placeholder="Password">
+                    </div>
+                </div>
+                <div id="auth-error" class="text-red-400 text-sm h-4"></div>
+                <div>
+                    <button type="submit" id="auth-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                        Sign In
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -172,7 +200,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp, increment, getDocs, deleteDoc, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Global State ---
@@ -183,11 +211,19 @@
         let inventoryDocs = [];
         let currentView = 'all';
         let currentUserManagementView = 'active';
+        let isLoginMode = true;
 
         // --- DOM Element References ---
         const loadingScreen = document.getElementById('loading-screen');
         const appScreen = document.getElementById('app-screen');
+        const authScreen = document.getElementById('auth-screen');
         const pendingApprovalScreen = document.getElementById('pending-approval-screen');
+        const authForm = document.getElementById('auth-form');
+        const authError = document.getElementById('auth-error');
+        const toggleAuthModeLink = document.getElementById('toggle-auth-mode');
+        const authTitle = document.getElementById('auth-title');
+        const authSubtitle = document.getElementById('auth-subtitle');
+        const authButton = document.getElementById('auth-button');
         const logoutBtn = document.getElementById('logout-btn');
         const manageUsersBtn = document.getElementById('manage-users-btn');
         const manageUsersModal = document.getElementById('manage-users-modal');
@@ -249,41 +285,32 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                inventoryCollectionRef = collection(db, "artifacts", appId, "public", "data", "inventory");
-                usersCollectionRef = collection(db, "artifacts", appId, "public", "data", "users");
+                // Simplified collection paths for easier rule management
+                inventoryCollectionRef = collection(db, "inventory");
+                usersCollectionRef = collection(db, "users");
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         try {
-                            let userProfile = await getUserProfile(user.uid);
-                            if (!userProfile) {
-                                userProfile = await setupNewUser(user);
-                            }
-                            
+                            const userProfile = await getUserProfile(user.uid);
                             if (userProfile) {
-                                currentUser = { uid: user.uid, ...userProfile };
+                                currentUser = { uid: user.uid, email: user.email, ...userProfile };
                                 if (currentUser.role === 'pending') {
                                     showPendingScreen();
                                 } else {
                                     showApp();
                                 }
                             } else {
-                                loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Could not load user profile. Please refresh.</div>`;
+                                // This case can happen if a user is deleted from the DB but not Auth
+                                showAuthScreen();
                             }
                         } catch (error) {
-                            console.error("Error during user profile setup:", error);
-                            if (error.code === 'unavailable' || error.message.includes('offline')) {
-                                loadingScreen.innerHTML = `<div class="text-center text-red-400 p-4">
-                                    <h3 class="font-bold text-lg">Connection Error</h3>
-                                    <p>Could not connect to the database. The client is offline.</p>
-                                    <p class="mt-2 text-sm text-gray-400">Please check your internet connection and ensure your Firestore security rules are correct.</p>
-                                </div>`;
-                            } else {
-                                loadingScreen.innerHTML = `<div class="text-center text-red-400">An error occurred: ${error.message}</div>`;
-                            }
+                            console.error("Error getting user profile:", error);
+                            showAuthScreen();
                         }
                     } else {
-                        signInAnonymously(auth).catch(handleAuthError);
+                        currentUser = null;
+                        showAuthScreen();
                     }
                 });
 
@@ -293,20 +320,9 @@
             }
         }
 
-        function handleAuthError(error) {
-            console.error("Authentication Error:", error);
-            if (error.code === 'auth/configuration-not-found') {
-                loadingScreen.innerHTML = `<div class="text-center text-red-400 p-4">
-                    <h3 class="font-bold text-lg">Authentication Error</h3>
-                    <p>Anonymous sign-in is not enabled for this project.</p>
-                    <p class="mt-2 text-sm text-gray-400">Please go to your Firebase Console -> Authentication -> Sign-in method, and enable the 'Anonymous' provider.</p>
-                </div>`;
-            } else {
-                loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Could not authenticate. Please check your connection and refresh.</div>`;
-            }
-        }
-
         function setupEventListeners() {
+            authForm.addEventListener('submit', handleAuthFormSubmit);
+            toggleAuthModeLink.addEventListener('click', toggleAuthMode);
             logoutBtn.addEventListener('click', handleLogout);
             manageUsersBtn.addEventListener('click', showUsersModal);
             closeUsersModalBtn.addEventListener('click', () => manageUsersModal.classList.add('hidden'));
@@ -329,30 +345,46 @@
 
         // --- UI Control ---
         function showApp() {
-            loadingScreen.classList.add('hidden');
+            authScreen.classList.add('hidden');
             pendingApprovalScreen.classList.add('hidden');
             appScreen.classList.remove('hidden');
-            userInfoEl.innerHTML = `<p>Signed in as: <strong class="select-all">${currentUser.uid}</strong> (${currentUser.role})</p>`;
+            userInfoEl.innerHTML = `<p>Signed in as: <strong class="select-all">${currentUser.email}</strong> (${currentUser.role})</p>`;
             
             if (currentUser.role === 'admin') {
                 manageUsersBtn.classList.remove('hidden');
-                setupUsersListener(); // Admin gets user updates
+                setupUsersListener();
             } else {
                 manageUsersBtn.classList.add('hidden');
             }
             setupInventoryListener();
         }
 
-        function showLoadingScreen() {
+        function showAuthScreen() {
             appScreen.classList.add('hidden');
             pendingApprovalScreen.classList.add('hidden');
-            loadingScreen.classList.remove('hidden');
+            authScreen.classList.remove('hidden');
         }
         
         function showPendingScreen() {
-            loadingScreen.classList.add('hidden');
+            authScreen.classList.add('hidden');
             appScreen.classList.add('hidden');
             pendingApprovalScreen.classList.remove('hidden');
+        }
+
+        function toggleAuthMode(e) {
+            if(e) e.preventDefault();
+            isLoginMode = !isLoginMode;
+            authError.textContent = '';
+            if (isLoginMode) {
+                authTitle.textContent = 'Sign in to your account';
+                authSubtitle.innerHTML = 'Or <a href="#" id="toggle-auth-mode" class="font-medium text-red-500 hover:text-red-400">request access</a>';
+                authButton.textContent = 'Sign In';
+            } else {
+                authTitle.textContent = 'Request Access';
+                authSubtitle.innerHTML = 'Already have an account? <a href="#" id="toggle-auth-mode" class="font-medium text-red-500 hover:text-red-400">Sign in</a>';
+                authButton.textContent = 'Create Account';
+            }
+            document.getElementById('toggle-auth-mode').addEventListener('click', toggleAuthMode);
         }
 
         function setView(view) {
@@ -388,39 +420,42 @@
         }
 
         // --- Authentication & User Profile Logic ---
+        async function handleAuthFormSubmit(e) {
+            e.preventDefault();
+            const email = authForm.email.value;
+            const password = authForm.password.value;
+            authError.textContent = '';
+
+            try {
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } else {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    await setupNewUser(userCredential.user);
+                    showPendingScreen();
+                }
+            } catch (error) {
+                console.error("Auth Error:", error.code, error.message);
+                authError.textContent = error.message;
+            }
+        }
+
         async function handleLogout() {
             await signOut(auth);
-            window.location.reload();
         }
         
         async function setupNewUser(user) {
-            const configDocRef = doc(db, "artifacts", appId, "public", "data", "system", "config");
+            const usersQuery = query(usersCollectionRef);
+            const userDocs = await getDocs(usersQuery);
+            const role = userDocs.empty ? 'admin' : 'pending';
+
             const userDocRef = doc(usersCollectionRef, user.uid);
-            let newUserProfile = null;
-
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const configDoc = await transaction.get(configDocRef);
-                    let role = 'pending'; // New users are now pending
-
-                    if (!configDoc.exists() || !configDoc.data().adminAssigned) {
-                        role = 'admin'; // First user is admin
-                        transaction.set(configDocRef, { adminAssigned: true }, { merge: true });
-                    }
-                    
-                    newUserProfile = {
-                        uid: user.uid,
-                        role: role,
-                        createdAt: serverTimestamp()
-                    };
-                    transaction.set(userDocRef, newUserProfile);
-                });
-                return newUserProfile;
-            } catch (e) {
-                console.error("Transaction failed to create user profile: ", e);
-                loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Permission denied when setting up user profile. Please check Firestore security rules.</div>`;
-                return null;
-            }
+            await setDoc(userDocRef, {
+                uid: user.uid,
+                email: user.email,
+                role: role,
+                createdAt: serverTimestamp()
+            });
         }
 
         async function getUserProfile(uid) {
@@ -470,16 +505,16 @@
                     buttonsHtml = `
                         <div>
                             <button data-uid="${doc.id}" class="approve-user-btn bg-green-600 text-white font-bold py-1 px-3 rounded hover:bg-green-700 mr-2">Approve</button>
-                            <button data-uid="${doc.id}" class="deny-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Deny</button>
+                            <button data-uid="${doc.id}" data-email="${user.email}" class="deny-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Deny</button>
                         </div>
                     `;
                 } else if (currentUser.uid !== doc.id && user.role !== 'admin') {
-                     buttonsHtml = `<button data-uid="${doc.id}" class="delete-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Delete</button>`;
+                     buttonsHtml = `<button data-uid="${doc.id}" data-email="${user.email}" class="delete-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Delete</button>`;
                 }
 
                 userEl.innerHTML = `
                     <div>
-                        <p class="font-semibold text-white">User ID: ${user.uid}</p>
+                        <p class="font-semibold text-white">Email: ${user.email}</p>
                         <p class="text-sm text-gray-400">Role: ${user.role}</p>
                     </div>
                     ${buttonsHtml}
@@ -496,8 +531,8 @@
             const userDocRef = doc(usersCollectionRef, uidToApprove);
             try {
                 await updateDoc(userDocRef, { role: 'user' });
-                showScanMessage(`User ${uidToApprove} approved.`, 'success');
-                showUsersModal(); // Refresh list
+                showScanMessage(`User approved.`, 'success');
+                showUsersModal();
             } catch (error) {
                 console.error("Error approving user:", error);
                 showScanMessage('Failed to approve user.', 'error');
@@ -506,11 +541,12 @@
 
         async function handleDeleteUser(e) {
             const uidToDelete = e.target.dataset.uid;
-            const confirmed = prompt(`To confirm deletion of user ${uidToDelete}, please type DELETE and press OK. This cannot be undone.`);
+            const emailToDelete = e.target.dataset.email;
+            const confirmed = prompt(`To confirm deletion of user ${emailToDelete}, please type DELETE and press OK. This cannot be undone.`);
             if (confirmed === "DELETE") {
                  try {
                     await deleteDoc(doc(usersCollectionRef, uidToDelete));
-                    showScanMessage(`User ${uidToDelete} deleted.`, 'success');
+                    showScanMessage(`User deleted.`, 'success');
                     showUsersModal();
                 } catch (error) {
                     console.error("Error deleting user:", error);
@@ -674,7 +710,7 @@
                     <p>Could not read from the database. This is often due to incorrect Firestore security rules.</p>
                     <p class="mt-2 text-sm text-gray-400">Please double-check your security rules in the Firebase Console.</p>
                 </div>`;
-                showLoadingScreen();
+                showAuthScreen();
             });
         }
         
