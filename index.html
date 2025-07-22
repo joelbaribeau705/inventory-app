@@ -298,7 +298,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp, increment, getDocs, deleteDoc, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp, increment, getDocs, deleteDoc, runTransaction, writeBatch, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Global State ---
         let db, auth, appId, currentUser = null;
@@ -1083,7 +1083,7 @@
                 addPoModal.classList.add('hidden');
             } catch (error) {
                 console.error("Error creating PO:", error);
-                showScanMessage('Failed to create PO.', 'error');
+                showScanMessage('Failed to create PO. Check permissions and console.', 'error');
             }
         }
 
@@ -1147,6 +1147,7 @@
 
                     transaction.update(poDocRef, { status: 'Completed' });
                 });
+                const poDoc = await getDoc(poDocRef); // Re-fetch to get the PO number for the message
                 showScanMessage(`PO #${poDoc.data().poNumber} received and stock updated.`, 'success');
             } catch (error) {
                 console.error("Error receiving PO:", error);
