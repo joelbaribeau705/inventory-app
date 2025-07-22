@@ -110,6 +110,7 @@
                 </svg>
                 <h1 class="text-4xl font-bold text-white">Inventory Tracker</h1>
                 <div class="absolute top-0 right-0 flex space-x-4">
+                    <button id="scan-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">Scan & Adjust</button>
                     <button id="manage-users-btn" class="hidden relative bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
                         Manage Users
                         <span id="pending-users-badge" class="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
@@ -119,41 +120,33 @@
                 <p class="text-gray-400 mt-2">Shared inventory with QR code scanning and generation.</p>
             </header>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-1 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-                    <h2 class="text-2xl font-semibold text-white mb-4">Scanner</h2>
-                    <div id="reader" class="w-full aspect-video bg-gray-700 rounded-lg mb-4 overflow-hidden"></div>
-                    <button id="start-scan-btn" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"><span>Start Scanning</span></button>
-                    <div id="scan-result" class="mt-4 p-4 rounded-lg text-center font-medium"></div>
+            <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                <div class="flex justify-between items-center mb-2 flex-wrap gap-4">
+                    <h2 class="text-2xl font-semibold text-white">Current Stock</h2>
+                    <div class="flex space-x-2">
+                       <button id="import-csv-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">Import CSV</button>
+                       <button id="export-csv-btn" class="bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">Export CSV</button>
+                       <button id="add-item-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">+ Add New Part</button>
+                    </div>
                 </div>
-                <div class="lg:col-span-2 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-                    <div class="flex justify-between items-center mb-2 flex-wrap gap-4">
-                        <h2 class="text-2xl font-semibold text-white">Current Stock</h2>
-                        <div class="flex space-x-2">
-                           <button id="import-csv-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">Import CSV</button>
-                           <button id="export-csv-btn" class="bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">Export CSV</button>
-                           <button id="add-item-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">+ Add New Part</button>
-                        </div>
-                    </div>
-                    <div id="total-value-display" class="text-lg text-gray-300 mb-4 text-right pr-2">Total Inventory Value: $0.00</div>
-                    <!-- Search Bar -->
-                    <div class="mb-4">
-                        <input type="text" id="search-bar" class="w-full px-4 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Search by Part Number or Description...">
-                    </div>
-                    <!-- Tabs for Inventory View -->
-                    <div class="border-b border-gray-700 mb-4">
-                        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-                            <button id="tab-all" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-red-500 text-white">
-                                All Items
-                            </button>
-                            <button id="tab-reorder" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-white hover:border-gray-300">
-                                Re-Order Needed
-                                <span id="reorder-count-badge" class="ml-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
-                            </button>
-                        </nav>
-                    </div>
-                    <div id="inventory-list" class="space-y-3 max-h-[55vh] overflow-y-auto pr-2"></div>
+                <div id="total-value-display" class="text-lg text-gray-300 mb-4 text-right pr-2">Total Inventory Value: $0.00</div>
+                <!-- Search Bar -->
+                <div class="mb-4">
+                    <input type="text" id="search-bar" class="w-full px-4 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Search by Part Number or Description...">
                 </div>
+                <!-- Tabs for Inventory View -->
+                <div class="border-b border-gray-700 mb-4">
+                    <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                        <button id="tab-all" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-red-500 text-white">
+                            All Items
+                        </button>
+                        <button id="tab-reorder" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-white hover:border-gray-300">
+                            Re-Order Needed
+                            <span id="reorder-count-badge" class="ml-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
+                        </button>
+                    </nav>
+                </div>
+                <div id="inventory-list" class="space-y-3 max-h-[50vh] overflow-y-auto pr-2"></div>
             </div>
             
             <!-- Purchase Orders Section -->
@@ -162,7 +155,7 @@
                     <h2 class="text-2xl font-semibold text-white">Purchase Orders</h2>
                     <button id="add-po-btn" class="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors">+ New PO</button>
                 </div>
-                <div id="po-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+                <div id="po-list" class="space-y-3 max-h-[50vh] overflow-y-auto pr-2"></div>
             </div>
 
             <div id="user-info" class="text-center mt-6 text-xs text-gray-500"></div>
@@ -299,6 +292,18 @@
             </form>
         </div>
     </div>
+    
+    <!-- Scanner Modal -->
+    <div id="scanner-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-lg modal-enter border border-gray-700">
+            <h3 class="text-2xl font-bold mb-4 text-white">Scan QR Code</h3>
+            <div id="scanner-reader" class="w-full aspect-video bg-gray-700 rounded-lg mb-4 overflow-hidden"></div>
+            <div id="scanner-status" class="mt-4 text-sm text-center"></div>
+            <div class="text-right mt-6">
+                <button type="button" id="close-scanner-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Close</button>
+            </div>
+        </div>
+    </div>
 
 
     <!-- Firebase SDK -->
@@ -336,7 +341,7 @@
         const manageUsersModal = document.getElementById('manage-users-modal');
         const closeUsersModalBtn = document.getElementById('close-users-modal-btn');
         const usersListContainer = document.getElementById('users-list-container');
-        const startScanBtn = document.getElementById('start-scan-btn');
+        const startScanBtn = document.getElementById('scan-btn');
         const scanResultEl = document.getElementById('scan-result');
         const inventoryListEl = document.getElementById('inventory-list');
         const addItemBtn = document.getElementById('add-item-btn');
@@ -385,13 +390,16 @@
         const poListEl = document.getElementById('po-list');
         const poModalTitle = document.getElementById('po-modal-title');
         const deleteItemBtn = document.getElementById('delete-item-btn');
+        const scannerModal = document.getElementById('scanner-modal');
+        const closeScannerBtn = document.getElementById('close-scanner-btn');
+        const scannerStatus = document.getElementById('scanner-status');
 
 
         // --- App Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             setupFirebase();
             setupEventListeners();
-            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode = new Html5Qrcode("scanner-reader");
         });
         
         async function setupFirebase() {
@@ -452,6 +460,7 @@
             manageUsersBtn.addEventListener('click', showUsersModal);
             closeUsersModalBtn.addEventListener('click', () => manageUsersModal.classList.add('hidden'));
             startScanBtn.addEventListener('click', toggleScanner);
+            closeScannerBtn.addEventListener('click', toggleScanner);
             addItemBtn.addEventListener('click', () => showAddItemModal());
             cancelModalBtn.addEventListener('click', hideAddItemModal);
             addItemForm.addEventListener('submit', handleSaveItem);
@@ -937,17 +946,27 @@
 
         async function toggleScanner() {
             if (isScannerRunning) {
-                try { await html5QrCode.stop(); isScannerRunning = false; startScanBtn.innerHTML = `<span>Start Scanning</span>`; startScanBtn.classList.replace('bg-gray-700', 'bg-red-600'); } catch (err) { console.error("Error stopping scanner:", err); }
+                try { 
+                    await html5QrCode.stop(); 
+                    isScannerRunning = false; 
+                    scannerModal.classList.add('hidden');
+                } catch (err) { console.error("Error stopping scanner:", err); }
             } else {
-                startScanBtn.disabled = true; startScanBtn.textContent = 'Starting...';
+                scannerModal.classList.remove('hidden');
+                scannerStatus.textContent = 'Starting camera...';
                 try {
                     await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, handleScannedBarcode);
-                    isScannerRunning = true; startScanBtn.innerHTML = `<span>Stop Scanning</span>`; startScanBtn.classList.replace('bg-red-600', 'bg-gray-700');
-                } catch (err) { showScanMessage("Could not start camera.", 'error'); } finally { startScanBtn.disabled = false; }
+                    isScannerRunning = true;
+                    scannerStatus.textContent = 'Ready to scan.';
+                } catch (err) { 
+                    scannerStatus.textContent = 'Error: Could not start camera.';
+                    console.error(err);
+                }
             }
         }
 
         async function handleScannedBarcode(decodedText) {
+            await toggleScanner(); // Close the scanner modal
             showAdjustStockModal(decodedText);
         }
         
@@ -1198,22 +1217,22 @@
                 const isCompleted = po.status === 'Completed';
                 
                 poEl.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-7 gap-4 items-center">
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
                         <div><p class="font-semibold text-white">PO #: ${po.poNumber}</p><p class="text-sm text-gray-400">${po.date}</p></div>
                         <div><p class="font-semibold text-white">${po.vendor}</p><p class="text-sm text-gray-400">Vendor</p></div>
                         <div><p class="font-semibold text-white">${po.partNumber}</p><p class="text-sm text-gray-400">Part Number</p></div>
                         <div><p class="font-semibold text-white">${po.quantity} @ $${po.cost.toFixed(2)}</p><p class="text-sm text-gray-400">Order</p></div>
                         <div><p class="font-semibold text-white">${po.expectedDeliveryDate || 'N/A'}</p><p class="text-sm text-gray-400">Expected</p></div>
-                        <div class="text-center">
+                        <div class="flex flex-col items-end space-y-2">
                            ${isCompleted 
                                 ? `<span class="px-3 py-1 text-sm font-semibold text-green-200 bg-green-800 rounded-full">Completed</span>`
                                 : `<span class="px-3 py-1 text-sm font-semibold text-yellow-200 bg-yellow-800 rounded-full">Open</span>`
                            }
-                        </div>
-                        <div class="text-right flex space-x-2 justify-end">
-                           ${!isCompleted ? `<button data-id="${doc.id}" class="edit-po-btn bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500">Edit</button>` : ''}
-                           ${!isCompleted ? `<button data-id="${doc.id}" class="receive-po-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Receive</button>` : ''}
-                           <button data-id="${doc.id}" class="delete-po-btn bg-red-800 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">Delete</button>
+                           <div class="flex space-x-2">
+                               ${!isCompleted ? `<button data-id="${doc.id}" class="edit-po-btn bg-gray-600 text-white font-bold py-1 px-3 rounded-lg hover:bg-gray-500">Edit</button>` : ''}
+                               ${!isCompleted ? `<button data-id="${doc.id}" class="receive-po-btn bg-green-600 text-white font-bold py-1 px-3 rounded-lg hover:bg-green-700">Receive</button>` : ''}
+                               <button data-id="${doc.id}" class="delete-po-btn bg-red-800 text-white font-bold py-1 px-3 rounded-lg hover:bg-red-700">Delete</button>
+                           </div>
                         </div>
                     </div>
                 `;
