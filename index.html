@@ -136,6 +136,10 @@
                         </div>
                     </div>
                     <div id="total-value-display" class="text-lg text-gray-300 mb-4 text-right pr-2">Total Inventory Value: $0.00</div>
+                    <!-- Search Bar -->
+                    <div class="mb-4">
+                        <input type="text" id="search-bar" class="w-full px-4 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Search by Part Number or Description...">
+                    </div>
                     <!-- Tabs for Inventory View -->
                     <div class="border-b border-gray-700 mb-4">
                         <nav class="-mb-px flex space-x-6" aria-label="Tabs">
@@ -148,9 +152,19 @@
                             </button>
                         </nav>
                     </div>
-                    <div id="inventory-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+                    <div id="inventory-list" class="space-y-3 max-h-[55vh] overflow-y-auto pr-2"></div>
                 </div>
             </div>
+            
+            <!-- Purchase Orders Section -->
+            <div class="mt-8 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                 <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                    <h2 class="text-2xl font-semibold text-white">Purchase Orders</h2>
+                    <button id="add-po-btn" class="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors">+ New PO</button>
+                </div>
+                <div id="po-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+            </div>
+
             <div id="user-info" class="text-center mt-6 text-xs text-gray-500"></div>
         </div>
     </div>
@@ -164,10 +178,11 @@
                 <div class="sm:col-span-2"><label for="partDescription" class="block text-sm font-medium text-gray-300 mb-1">Part Description</label><input type="text" id="partDescription" name="partDescription" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" required></div>
                 <div><label for="manufacturer" class="block text-sm font-medium text-gray-300 mb-1">Manufacturer</label><input type="text" id="manufacturer" name="manufacturer" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
                 <div><label for="binLocation" class="block text-sm font-medium text-gray-300 mb-1">Bin Location</label><input type="text" id="binLocation" name="binLocation" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
+                <div><label for="dateCode" class="block text-sm font-medium text-gray-300 mb-1">Date Code</label><input type="text" id="dateCode" name="dateCode" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
                 <div><label for="cost" class="block text-sm font-medium text-gray-300 mb-1">Cost (per unit)</label><input type="number" id="cost" name="cost" min="0" step="0.01" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
                 <div><label for="quantity" class="block text-sm font-medium text-gray-300 mb-1">Current Quantity</label><input type="number" id="quantity" name="quantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" required></div>
                 <div><label for="minQuantity" class="block text-sm font-medium text-gray-300 mb-1">Min Stock Level</label><input type="number" id="minQuantity" name="minQuantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
-                <div><label for="maxQuantity" class="block text-sm font-medium text-gray-300 mb-1">Max Stock Level</label><input type="number" id="maxQuantity" name="maxQuantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
+                <div class="sm:col-span-2"><label for="maxQuantity" class="block text-sm font-medium text-gray-300 mb-1">Max Stock Level</label><input type="number" id="maxQuantity" name="maxQuantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
                 <div class="sm:col-span-2 flex justify-end space-x-4 mt-4"><button type="button" id="cancel-modal-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors">Cancel</button><button type="submit" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors">Save Part</button></div>
             </form>
         </div>
@@ -180,13 +195,37 @@
                  <h3 id="details-title" class="text-2xl font-bold mb-2 text-white print-info">Part Details</h3>
                  <p id="details-part-number" class="text-gray-400 mb-2 print-info"></p>
                  <p id="details-part-description" class="text-gray-300 mb-2 print-info"></p>
-                 <p id="details-bin-location" class="text-gray-300 mb-4 print-info"></p>
+                 <p id="details-bin-location" class="text-gray-300 mb-2 print-info"></p>
+                 <p id="details-date-code" class="text-gray-300 mb-4 print-info"></p>
                  <div id="details-qr-code" class="bg-white p-4 rounded-lg w-64 h-64 mx-auto"></div>
              </div>
              <div class="text-center mt-6">
                  <button id="print-qr-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">Print QR Code</button>
                  <button id="close-details-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors ml-4">Close</button>
              </div>
+        </div>
+    </div>
+
+    <!-- Adjust Stock Modal -->
+    <div id="adjust-stock-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md modal-enter border border-gray-700">
+            <h3 class="text-2xl font-bold mb-2 text-white">Adjust Stock</h3>
+            <p id="adjust-stock-part-info" class="text-gray-400 mb-4"></p>
+            <div class="text-center mb-4">
+                <p class="text-lg text-gray-400">Current Quantity</p>
+                <p id="adjust-stock-current-qty" class="text-5xl font-bold text-white">0</p>
+            </div>
+            <div class="flex items-center justify-center space-x-4 mb-4">
+                <button id="adjust-stock-down-btn" class="bg-red-600 text-white font-bold rounded-full w-12 h-12 text-3xl flex items-center justify-center">-</button>
+                <button id="adjust-stock-up-btn" class="bg-green-600 text-white font-bold rounded-full w-12 h-12 text-3xl flex items-center justify-center">+</button>
+            </div>
+            <div class="flex items-center space-x-2">
+                <input type="number" id="adjust-stock-amount" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" placeholder="Set specific quantity...">
+                <button id="adjust-stock-set-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Set</button>
+            </div>
+             <div class="text-right mt-6">
+                <button id="close-adjust-stock-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Done</button>
+            </div>
         </div>
     </div>
 
@@ -233,6 +272,27 @@
         </div>
     </div>
 
+    <!-- Add PO Modal -->
+    <div id="add-po-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-lg modal-enter border border-gray-700">
+            <h3 class="text-2xl font-bold mb-6 text-white">Create Purchase Order</h3>
+            <form id="add-po-form">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><label for="po-number" class="block text-sm font-medium text-gray-300 mb-1">PO Number</label><input type="text" id="po-number" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                    <div><label for="po-date" class="block text-sm font-medium text-gray-300 mb-1">PO Date</label><input type="date" id="po-date" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                    <div class="sm:col-span-2"><label for="po-vendor" class="block text-sm font-medium text-gray-300 mb-1">Vendor</label><input type="text" id="po-vendor" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                    <div><label for="po-part-number" class="block text-sm font-medium text-gray-300 mb-1">Part Number</label><input type="text" id="po-part-number" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                    <div><label for="po-quantity" class="block text-sm font-medium text-gray-300 mb-1">Quantity</label><input type="number" id="po-quantity" min="1" value="1" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                    <div class="sm:col-span-2"><label for="po-cost" class="block text-sm font-medium text-gray-300 mb-1">Cost (per unit)</label><input type="number" id="po-cost" min="0" step="0.01" value="0" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="cancel-po-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Cancel</button>
+                    <button type="submit" class="bg-cyan-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-cyan-700">Create PO</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 
     <!-- Firebase SDK -->
     <script type="module">
@@ -244,11 +304,12 @@
         let db, auth, appId, currentUser = null;
         let html5QrCode;
         let isScannerRunning = false;
-        let inventoryCollectionRef, usersCollectionRef;
+        let inventoryCollectionRef, usersCollectionRef, poCollectionRef;
         let inventoryDocs = [];
         let currentView = 'all';
         let currentUserManagementView = 'active';
         let isLoginMode = true;
+        let currentAdjustingPartId = null;
 
         // --- DOM Element References ---
         const loadingScreen = document.getElementById('loading-screen');
@@ -282,6 +343,7 @@
         const detailsPartNumberEl = document.getElementById('details-part-number');
         const detailsPartDescriptionEl = document.getElementById('details-part-description');
         const detailsBinLocationEl = document.getElementById('details-bin-location');
+        const detailsDateCodeEl = document.getElementById('details-date-code');
         const exportCsvBtn = document.getElementById('export-csv-btn');
         const importCsvBtn = document.getElementById('import-csv-btn');
         const importModal = document.getElementById('import-modal');
@@ -298,6 +360,20 @@
         const userTabActive = document.getElementById('user-tab-active');
         const userTabPending = document.getElementById('user-tab-pending');
         const pendingRequestsBadge = document.getElementById('pending-requests-badge');
+        const searchBar = document.getElementById('search-bar');
+        const adjustStockModal = document.getElementById('adjust-stock-modal');
+        const adjustStockPartInfo = document.getElementById('adjust-stock-part-info');
+        const adjustStockCurrentQty = document.getElementById('adjust-stock-current-qty');
+        const adjustStockUpBtn = document.getElementById('adjust-stock-up-btn');
+        const adjustStockDownBtn = document.getElementById('adjust-stock-down-btn');
+        const adjustStockAmount = document.getElementById('adjust-stock-amount');
+        const adjustStockSetBtn = document.getElementById('adjust-stock-set-btn');
+        const closeAdjustStockBtn = document.getElementById('close-adjust-stock-btn');
+        const addPoBtn = document.getElementById('add-po-btn');
+        const addPoModal = document.getElementById('add-po-modal');
+        const cancelPoBtn = document.getElementById('cancel-po-btn');
+        const addPoForm = document.getElementById('add-po-form');
+        const poListEl = document.getElementById('po-list');
 
 
         // --- App Initialization ---
@@ -326,6 +402,7 @@
                 
                 inventoryCollectionRef = collection(db, "inventory");
                 usersCollectionRef = collection(db, "users");
+                poCollectionRef = collection(db, "purchaseOrders");
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
@@ -378,6 +455,19 @@
             tabReorder.addEventListener('click', () => setView('reorder'));
             userTabActive.addEventListener('click', () => setUserManagementView('active'));
             userTabPending.addEventListener('click', () => setUserManagementView('pending'));
+            searchBar.addEventListener('input', () => renderInventory(inventoryDocs));
+            closeAdjustStockBtn.addEventListener('click', () => adjustStockModal.classList.add('hidden'));
+            adjustStockUpBtn.addEventListener('click', () => adjustStock(1));
+            adjustStockDownBtn.addEventListener('click', () => adjustStock(-1));
+            adjustStockSetBtn.addEventListener('click', () => {
+                const amount = parseInt(adjustStockAmount.value, 10);
+                if (!isNaN(amount)) {
+                    setStock(amount);
+                }
+            });
+            addPoBtn.addEventListener('click', () => addPoModal.classList.remove('hidden'));
+            cancelPoBtn.addEventListener('click', () => addPoModal.classList.add('hidden'));
+            addPoForm.addEventListener('submit', handleAddPo);
         }
 
         // --- UI Control ---
@@ -394,6 +484,7 @@
                 manageUsersBtn.classList.add('hidden');
             }
             setupInventoryListener();
+            setupPoListener();
         }
 
         function showAuthScreen() {
@@ -607,7 +698,7 @@
 
         // --- CSV Import/Export ---
         function handleDownloadTemplate() {
-            const headers = "partNumber,partDescription,manufacturer,binLocation,cost,quantity,minQuantity,maxQuantity";
+            const headers = "partNumber,partDescription,manufacturer,binLocation,cost,dateCode,quantity,minQuantity,maxQuantity";
             const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
@@ -623,7 +714,7 @@
             showScanMessage('Generating CSV export...', 'info');
             try {
                 const querySnapshot = await getDocs(inventoryCollectionRef);
-                let csvContent = "partNumber,partDescription,manufacturer,binLocation,cost,quantity,minQuantity,maxQuantity,createdAt,lastUpdated\n";
+                let csvContent = "partNumber,partDescription,manufacturer,binLocation,cost,dateCode,quantity,minQuantity,maxQuantity,createdAt,lastUpdated\n";
                 
                 querySnapshot.forEach(doc => {
                     const data = doc.data();
@@ -633,6 +724,7 @@
                         `"${(data.manufacturer || '').replace(/"/g, '""')}"`,
                         `"${(data.binLocation || '').replace(/"/g, '""')}"`,
                         data.cost || 0,
+                        `"${(data.dateCode || '').replace(/"/g, '""')}"`,
                         data.quantity || 0,
                         data.minQuantity || 0,
                         data.maxQuantity || 0,
@@ -689,6 +781,7 @@
                             manufacturer: row.manufacturer || '',
                             binLocation: row.binLocation || '',
                             cost: parseFloat(row.cost) || 0,
+                            dateCode: row.dateCode || '',
                             quantity: parseInt(row.quantity, 10) || 0,
                             minQuantity: parseInt(row.minQuantity, 10) || 0,
                             maxQuantity: parseInt(row.maxQuantity, 10) || 0,
@@ -763,10 +856,16 @@
         }
         
         function renderInventory(docs) {
-            let docsToRender = docs;
+            const searchTerm = searchBar.value.toLowerCase();
+            let docsToRender = docs.filter(doc => {
+                const item = doc.data();
+                const partNumber = doc.id.toLowerCase();
+                const description = (item.partDescription || '').toLowerCase();
+                return partNumber.includes(searchTerm) || description.includes(searchTerm);
+            });
 
             if (currentView === 'reorder') {
-                docsToRender = docs.filter(doc => {
+                docsToRender = docsToRender.filter(doc => {
                     const item = doc.data();
                     return item.quantity <= item.minQuantity && item.minQuantity > 0;
                 });
@@ -795,7 +894,7 @@
                     <div class="col-span-2">
                         <p class="font-semibold text-white">${item.partDescription}</p>
                         <p class="text-sm text-gray-400">P/N: ${doc.id}</p>
-                        <p class="text-sm text-gray-500">${item.manufacturer || 'N/A'} | Bin: ${item.binLocation || 'N/A'}</p>
+                        <p class="text-sm text-gray-500">${item.manufacturer || 'N/A'} | Bin: ${item.binLocation || 'N/A'} | Date: ${item.dateCode || 'N/A'}</p>
                     </div>
                     <div class="text-right">
                         <p class="text-2xl font-bold text-red-500">${item.quantity}</p>
@@ -803,7 +902,7 @@
                     </div>
                     <div class="flex justify-end"><span class="w-4 h-4 rounded-full ${stockStatusClass}" title="Stock Status"></span></div>
                 `;
-                itemEl.addEventListener('click', () => showDetailsModal(doc.id));
+                itemEl.addEventListener('click', () => showAdjustStockModal(doc.id));
                 inventoryListEl.appendChild(itemEl);
             });
         }
@@ -821,17 +920,7 @@
         }
 
         async function handleScannedBarcode(decodedText) {
-            const itemDocRef = doc(inventoryCollectionRef, decodedText);
-            try {
-                const docSnap = await getDoc(itemDocRef);
-                if (docSnap.exists()) {
-                    await updateDoc(itemDocRef, { quantity: increment(1), lastUpdated: serverTimestamp() });
-                    const item = docSnap.data();
-                    showScanMessage(`✅ Counted: ${item.partDescription} (New Qty: ${item.quantity + 1})`, 'success');
-                } else {
-                    showScanMessage(`⚠️ Part Number not found.`, 'warning'); showAddItemModal(decodedText);
-                }
-            } catch (error) { showScanMessage(`❌ Error processing scan.`, 'error'); }
+            showAdjustStockModal(decodedText);
         }
         
         async function handleSaveItem(e) {
@@ -843,6 +932,7 @@
                 manufacturer: addItemForm.manufacturer.value.trim(),
                 binLocation: addItemForm.binLocation.value.trim(),
                 cost: parseFloat(addItemForm.cost.value) || 0,
+                dateCode: addItemForm.dateCode.value.trim(),
                 quantity: parseInt(addItemForm.quantity.value, 10) || 0,
                 minQuantity: parseInt(addItemForm.minQuantity.value, 10) || 0,
                 maxQuantity: parseInt(addItemForm.maxQuantity.value, 10) || 0,
@@ -892,6 +982,7 @@
                     detailsPartNumberEl.textContent = `P/N: ${partNumber}`;
                     detailsPartDescriptionEl.textContent = `${item.partDescription}`;
                     detailsBinLocationEl.textContent = `Bin: ${item.binLocation || 'N/A'}`;
+                    detailsDateCodeEl.textContent = `Date Code: ${item.dateCode || 'N/A'}`;
                 }
             } catch (error) {
                 console.error("Error fetching item details:", error);
@@ -908,6 +999,160 @@
         }
 
         function hideDetailsModal() { detailsModal.classList.add('hidden'); }
+        
+        async function showAdjustStockModal(partNumber) {
+            currentAdjustingPartId = partNumber;
+            const itemDocRef = doc(inventoryCollectionRef, partNumber);
+            try {
+                const docSnap = await getDoc(itemDocRef);
+                if (docSnap.exists()) {
+                    const item = docSnap.data();
+                    adjustStockPartInfo.textContent = `${partNumber} - ${item.partDescription}`;
+                    adjustStockCurrentQty.textContent = item.quantity;
+                    adjustStockModal.classList.remove('hidden');
+                } else {
+                    showScanMessage(`Part Number ${partNumber} not found.`, 'error');
+                }
+            } catch (error) {
+                console.error("Error fetching item for stock adjustment:", error);
+            }
+        }
+
+        async function adjustStock(amount) {
+            if (!currentAdjustingPartId) return;
+            const itemDocRef = doc(inventoryCollectionRef, currentAdjustingPartId);
+            try {
+                await updateDoc(itemDocRef, {
+                    quantity: increment(amount),
+                    lastUpdated: serverTimestamp()
+                });
+                const newQty = parseInt(adjustStockCurrentQty.textContent) + amount;
+                adjustStockCurrentQty.textContent = newQty;
+                adjustStockAmount.value = '';
+            } catch (error) {
+                console.error("Error adjusting stock:", error);
+            }
+        }
+
+        async function setStock(amount) {
+            if (!currentAdjustingPartId) return;
+            const itemDocRef = doc(inventoryCollectionRef, currentAdjustingPartId);
+            try {
+                await updateDoc(itemDocRef, {
+                    quantity: amount,
+                    lastUpdated: serverTimestamp()
+                });
+                adjustStockCurrentQty.textContent = amount;
+                adjustStockAmount.value = '';
+            } catch (error) {
+                console.error("Error setting stock:", error);
+            }
+        }
+        
+        // --- PO Functions ---
+        function setupPoListener() {
+            onSnapshot(query(poCollectionRef), (snapshot) => {
+                renderPurchaseOrders(snapshot.docs);
+            });
+        }
+
+        async function handleAddPo(e) {
+            e.preventDefault();
+            const poData = {
+                poNumber: document.getElementById('po-number').value,
+                date: document.getElementById('po-date').value,
+                vendor: document.getElementById('po-vendor').value,
+                partNumber: document.getElementById('po-part-number').value,
+                quantity: parseInt(document.getElementById('po-quantity').value, 10),
+                cost: parseFloat(document.getElementById('po-cost').value),
+                status: 'Open',
+                createdAt: serverTimestamp()
+            };
+
+            const itemDocRef = doc(inventoryCollectionRef, poData.partNumber);
+            const itemDoc = await getDoc(itemDocRef);
+            if (!itemDoc.exists()) {
+                showScanMessage(`Part number ${poData.partNumber} does not exist in inventory. Please add it first.`, 'error');
+                return;
+            }
+
+            try {
+                await addDoc(poCollectionRef, poData);
+                showScanMessage(`PO #${poData.poNumber} created successfully.`, 'success');
+                addPoForm.reset();
+                addPoModal.classList.add('hidden');
+            } catch (error) {
+                console.error("Error creating PO:", error);
+                showScanMessage('Failed to create PO.', 'error');
+            }
+        }
+
+        function renderPurchaseOrders(docs) {
+            poListEl.innerHTML = '';
+            if (docs.length === 0) {
+                poListEl.innerHTML = `<p class="text-gray-500 text-center py-8">No purchase orders found.</p>`;
+                return;
+            }
+
+            const sortedDocs = docs.sort((a, b) => b.data().createdAt.seconds - a.data().createdAt.seconds);
+
+            sortedDocs.forEach(doc => {
+                const po = doc.data();
+                const poEl = document.createElement('div');
+                poEl.className = 'p-4 border border-gray-700 rounded-lg';
+                
+                const isCompleted = po.status === 'Completed';
+                
+                poEl.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                        <div><p class="font-semibold text-white">PO #: ${po.poNumber}</p><p class="text-sm text-gray-400">${po.date}</p></div>
+                        <div><p class="font-semibold text-white">${po.vendor}</p><p class="text-sm text-gray-400">Vendor</p></div>
+                        <div><p class="font-semibold text-white">${po.partNumber}</p><p class="text-sm text-gray-400">Part Number</p></div>
+                        <div><p class="font-semibold text-white">${po.quantity} @ $${po.cost.toFixed(2)}</p><p class="text-sm text-gray-400">Order</p></div>
+                        <div class="text-right">
+                           ${isCompleted 
+                                ? `<span class="px-3 py-1 text-sm font-semibold text-green-200 bg-green-800 rounded-full">Completed</span>`
+                                : `<button data-id="${doc.id}" class="receive-po-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Receive Order</button>`
+                           }
+                        </div>
+                    </div>
+                `;
+                poListEl.appendChild(poEl);
+            });
+
+            document.querySelectorAll('.receive-po-btn').forEach(btn => {
+                btn.addEventListener('click', handleReceiveOrder);
+            });
+        }
+
+        async function handleReceiveOrder(e) {
+            const poId = e.target.dataset.id;
+            const poDocRef = doc(poCollectionRef, poId);
+            
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const poDoc = await transaction.get(poDocRef);
+                    if (!poDoc.exists()) {
+                        throw "PO does not exist!";
+                    }
+
+                    const poData = poDoc.data();
+                    const itemDocRef = doc(inventoryCollectionRef, poData.partNumber);
+                    
+                    transaction.update(itemDocRef, {
+                        quantity: increment(poData.quantity),
+                        cost: poData.cost, // Update the cost to the new PO cost
+                        lastUpdated: serverTimestamp()
+                    });
+
+                    transaction.update(poDocRef, { status: 'Completed' });
+                });
+                showScanMessage(`PO #${poDoc.data().poNumber} received and stock updated.`, 'success');
+            } catch (error) {
+                console.error("Error receiving PO:", error);
+                showScanMessage('Failed to receive PO.', 'error');
+            }
+        }
 
     </script>
 </body>
