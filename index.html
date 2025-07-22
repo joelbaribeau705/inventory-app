@@ -937,10 +937,13 @@
                     showDetailsModal(e.currentTarget.dataset.partId);
                 });
                 if (currentUser.role === 'admin') {
-                    itemEl.querySelector('.edit-item-btn').addEventListener('click', (e) => {
-                        e.stopPropagation(); 
-                        handleEditItem(e.currentTarget.dataset.partId);
-                    });
+                    const editBtn = itemEl.querySelector('.edit-item-btn');
+                    if(editBtn) {
+                        editBtn.addEventListener('click', (e) => {
+                            e.stopPropagation(); 
+                            handleEditItem(e.currentTarget.dataset.partId);
+                        });
+                    }
                 }
                 inventoryListEl.appendChild(itemEl);
             });
