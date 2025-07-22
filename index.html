@@ -38,6 +38,14 @@
         </div>
     </div>
 
+    <!-- Pending Approval Screen -->
+    <div id="pending-approval-screen" class="hidden min-h-screen flex items-center justify-center">
+        <div class="text-center">
+            <h2 class="text-2xl font-semibold text-white">Account Pending Approval</h2>
+            <p class="text-gray-400 mt-2">Your account has been created and is awaiting approval from an administrator.</p>
+        </div>
+    </div>
+
 
     <!-- Main App Screen -->
     <div id="app-screen" class="hidden">
@@ -51,7 +59,10 @@
                 </svg>
                 <h1 class="text-4xl font-bold text-white">Inventory Tracker</h1>
                 <div class="absolute top-0 right-0 flex space-x-4">
-                    <button id="manage-users-btn" class="hidden bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Manage Users</button>
+                    <button id="manage-users-btn" class="hidden relative bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                        Manage Users
+                        <span id="pending-users-badge" class="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
+                    </button>
                     <button id="logout-btn" class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors">Log Out</button>
                 </div>
                 <p class="text-gray-400 mt-2">Shared inventory with QR code scanning and generation.</p>
@@ -116,9 +127,21 @@
 
     <!-- Manage Users Modal -->
     <div id="manage-users-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
-        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-2xl modal-enter border border-gray-700">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-3xl modal-enter border border-gray-700">
             <h3 class="text-2xl font-bold mb-6 text-white">Manage Users</h3>
-            <div id="users-list" class="space-y-3 max-h-[60vh] overflow-y-auto"></div>
+            <!-- User Management Tabs -->
+            <div class="border-b border-gray-700 mb-4">
+                <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                    <button id="user-tab-active" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-red-500 text-white">
+                        Active Users
+                    </button>
+                    <button id="user-tab-pending" class="relative whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-white hover:border-gray-300">
+                        Pending Requests
+                        <span id="pending-requests-badge" class="ml-2 absolute top-2 -right-6 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
+                    </button>
+                </nav>
+            </div>
+            <div id="users-list-container" class="space-y-3 max-h-[60vh] overflow-y-auto"></div>
             <div class="text-right mt-6">
                 <button id="close-users-modal-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Close</button>
             </div>
@@ -157,17 +180,19 @@
         let html5QrCode;
         let isScannerRunning = false;
         let inventoryCollectionRef, usersCollectionRef;
-        let inventoryDocs = []; // To store the latest snapshot
-        let currentView = 'all'; // 'all' or 'reorder'
+        let inventoryDocs = [];
+        let currentView = 'all';
+        let currentUserManagementView = 'active';
 
         // --- DOM Element References ---
         const loadingScreen = document.getElementById('loading-screen');
         const appScreen = document.getElementById('app-screen');
+        const pendingApprovalScreen = document.getElementById('pending-approval-screen');
         const logoutBtn = document.getElementById('logout-btn');
         const manageUsersBtn = document.getElementById('manage-users-btn');
         const manageUsersModal = document.getElementById('manage-users-modal');
         const closeUsersModalBtn = document.getElementById('close-users-modal-btn');
-        const usersListEl = document.getElementById('users-list');
+        const usersListContainer = document.getElementById('users-list-container');
         const startScanBtn = document.getElementById('start-scan-btn');
         const scanResultEl = document.getElementById('scan-result');
         const inventoryListEl = document.getElementById('inventory-list');
@@ -194,6 +219,10 @@
         const tabReorder = document.getElementById('tab-reorder');
         const reorderCountBadge = document.getElementById('reorder-count-badge');
         const totalValueDisplay = document.getElementById('total-value-display');
+        const pendingUsersBadge = document.getElementById('pending-users-badge');
+        const userTabActive = document.getElementById('user-tab-active');
+        const userTabPending = document.getElementById('user-tab-pending');
+        const pendingRequestsBadge = document.getElementById('pending-requests-badge');
 
 
         // --- App Initialization ---
@@ -205,7 +234,6 @@
         
         async function setupFirebase() {
             try {
-                // YOUR UNIQUE FIREBASE CONFIGURATION
                 const firebaseConfig = {
                   apiKey: "AIzaSyCrpnw-qBMAk7idkd6SRMmFNa0vRSKsNGM",
                   authDomain: "on42-inventory-app.firebaseapp.com",
@@ -234,7 +262,11 @@
                             
                             if (userProfile) {
                                 currentUser = { uid: user.uid, ...userProfile };
-                                showApp();
+                                if (currentUser.role === 'pending') {
+                                    showPendingScreen();
+                                } else {
+                                    showApp();
+                                }
                             } else {
                                 loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Could not load user profile. Please refresh.</div>`;
                             }
@@ -291,16 +323,20 @@
             processImportBtn.addEventListener('click', handleProcessImport);
             tabAll.addEventListener('click', () => setView('all'));
             tabReorder.addEventListener('click', () => setView('reorder'));
+            userTabActive.addEventListener('click', () => setUserManagementView('active'));
+            userTabPending.addEventListener('click', () => setUserManagementView('pending'));
         }
 
         // --- UI Control ---
         function showApp() {
             loadingScreen.classList.add('hidden');
+            pendingApprovalScreen.classList.add('hidden');
             appScreen.classList.remove('hidden');
             userInfoEl.innerHTML = `<p>Signed in as: <strong class="select-all">${currentUser.uid}</strong> (${currentUser.role})</p>`;
             
             if (currentUser.role === 'admin') {
                 manageUsersBtn.classList.remove('hidden');
+                setupUsersListener(); // Admin gets user updates
             } else {
                 manageUsersBtn.classList.add('hidden');
             }
@@ -309,7 +345,14 @@
 
         function showLoadingScreen() {
             appScreen.classList.add('hidden');
+            pendingApprovalScreen.classList.add('hidden');
             loadingScreen.classList.remove('hidden');
+        }
+        
+        function showPendingScreen() {
+            loadingScreen.classList.add('hidden');
+            appScreen.classList.add('hidden');
+            pendingApprovalScreen.classList.remove('hidden');
         }
 
         function setView(view) {
@@ -327,6 +370,22 @@
             }
             renderInventory(inventoryDocs);
         }
+        
+        function setUserManagementView(view) {
+            currentUserManagementView = view;
+             if (view === 'active') {
+                userTabActive.classList.add('border-red-500', 'text-white');
+                userTabActive.classList.remove('border-transparent', 'text-gray-400');
+                userTabPending.classList.add('border-transparent', 'text-gray-400');
+                userTabPending.classList.remove('border-red-500', 'text-white');
+            } else { // 'pending'
+                userTabPending.classList.add('border-red-500', 'text-white');
+                userTabPending.classList.remove('border-transparent', 'text-gray-400');
+                userTabActive.classList.add('border-transparent', 'text-gray-400');
+                userTabActive.classList.remove('border-red-500', 'text-white');
+            }
+            showUsersModal(); // Re-render the user list
+        }
 
         // --- Authentication & User Profile Logic ---
         async function handleLogout() {
@@ -342,10 +401,10 @@
             try {
                 await runTransaction(db, async (transaction) => {
                     const configDoc = await transaction.get(configDocRef);
-                    let role = 'user';
+                    let role = 'pending'; // New users are now pending
 
                     if (!configDoc.exists() || !configDoc.data().adminAssigned) {
-                        role = 'admin';
+                        role = 'admin'; // First user is admin
                         transaction.set(configDocRef, { adminAssigned: true }, { merge: true });
                     }
                     
@@ -371,35 +430,83 @@
         }
 
         // --- Admin User Management ---
+        function setupUsersListener() {
+            onSnapshot(query(usersCollectionRef), (snapshot) => {
+                const pendingUsers = snapshot.docs.filter(doc => doc.data().role === 'pending').length;
+                if (pendingUsers > 0) {
+                    pendingUsersBadge.textContent = pendingUsers;
+                    pendingUsersBadge.classList.remove('hidden');
+                    pendingRequestsBadge.textContent = pendingUsers;
+                    pendingRequestsBadge.classList.remove('hidden');
+                } else {
+                    pendingUsersBadge.classList.add('hidden');
+                    pendingRequestsBadge.classList.add('hidden');
+                }
+            });
+        }
+
         async function showUsersModal() {
-            usersListEl.innerHTML = '<p>Loading users...</p>';
-            manageUsersModal.classList.remove('hidden');
+            usersListContainer.innerHTML = '<p>Loading users...</p>';
+            if (manageUsersModal.classList.contains('hidden')) {
+                manageUsersModal.classList.remove('hidden');
+            }
             
-            const querySnapshot = await getDocs(usersCollectionRef);
-            usersListEl.innerHTML = '';
+            const q = query(usersCollectionRef, where("role", "==", currentUserManagementView));
+            const querySnapshot = await getDocs(q);
+            usersListContainer.innerHTML = '';
+
+            if (querySnapshot.empty) {
+                usersListContainer.innerHTML = `<p class="text-gray-500 text-center py-8">No ${currentUserManagementView} users found.</p>`;
+                return;
+            }
+
             querySnapshot.forEach((doc) => {
                 const user = doc.data();
                 const userEl = document.createElement('div');
                 userEl.className = 'p-3 border border-gray-700 rounded-lg flex justify-between items-center';
+                
+                let buttonsHtml = '';
+                if (currentUserManagementView === 'pending') {
+                    buttonsHtml = `
+                        <div>
+                            <button data-uid="${doc.id}" class="approve-user-btn bg-green-600 text-white font-bold py-1 px-3 rounded hover:bg-green-700 mr-2">Approve</button>
+                            <button data-uid="${doc.id}" class="deny-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Deny</button>
+                        </div>
+                    `;
+                } else if (currentUser.uid !== doc.id && user.role !== 'admin') {
+                     buttonsHtml = `<button data-uid="${doc.id}" class="delete-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Delete</button>`;
+                }
+
                 userEl.innerHTML = `
                     <div>
                         <p class="font-semibold text-white">User ID: ${user.uid}</p>
                         <p class="text-sm text-gray-400">Role: ${user.role}</p>
                     </div>
-                    ${(currentUser.uid !== doc.id && user.role !== 'admin') ? `<button data-uid="${doc.id}" class="delete-user-btn bg-red-800 text-white font-bold py-1 px-3 rounded hover:bg-red-700">Delete</button>` : ''}
+                    ${buttonsHtml}
                 `;
-                usersListEl.appendChild(userEl);
+                usersListContainer.appendChild(userEl);
             });
 
-            document.querySelectorAll('.delete-user-btn').forEach(btn => {
-                btn.addEventListener('click', handleDeleteUser);
-            });
+            document.querySelectorAll('.delete-user-btn, .deny-user-btn').forEach(btn => btn.addEventListener('click', handleDeleteUser));
+            document.querySelectorAll('.approve-user-btn').forEach(btn => btn.addEventListener('click', handleApproveUser));
+        }
+
+        async function handleApproveUser(e) {
+            const uidToApprove = e.target.dataset.uid;
+            const userDocRef = doc(usersCollectionRef, uidToApprove);
+            try {
+                await updateDoc(userDocRef, { role: 'user' });
+                showScanMessage(`User ${uidToApprove} approved.`, 'success');
+                showUsersModal(); // Refresh list
+            } catch (error) {
+                console.error("Error approving user:", error);
+                showScanMessage('Failed to approve user.', 'error');
+            }
         }
 
         async function handleDeleteUser(e) {
             const uidToDelete = e.target.dataset.uid;
-            
-            const confirmed = prompt(`To confirm deletion, please type DELETE and press OK. This cannot be undone.\nUser ID: ${uidToDelete}`);
+            const confirmed = prompt(`To confirm deletion of user ${uidToDelete}, please type DELETE and press OK. This cannot be undone.`);
             if (confirmed === "DELETE") {
                  try {
                     await deleteDoc(doc(usersCollectionRef, uidToDelete));
