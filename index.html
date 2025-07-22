@@ -283,7 +283,8 @@
                     <div class="sm:col-span-2"><label for="po-vendor" class="block text-sm font-medium text-gray-300 mb-1">Vendor</label><input type="text" id="po-vendor" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
                     <div><label for="po-part-number" class="block text-sm font-medium text-gray-300 mb-1">Part Number</label><input type="text" id="po-part-number" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
                     <div><label for="po-quantity" class="block text-sm font-medium text-gray-300 mb-1">Quantity</label><input type="number" id="po-quantity" min="1" value="1" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
-                    <div class="sm:col-span-2"><label for="po-cost" class="block text-sm font-medium text-gray-300 mb-1">Cost (per unit)</label><input type="number" id="po-cost" min="0" step="0.01" value="0" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                    <div><label for="po-cost" class="block text-sm font-medium text-gray-300 mb-1">Cost (per unit)</label><input type="number" id="po-cost" min="0" step="0.01" value="0" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
+                    <div><label for="po-delivery-date" class="block text-sm font-medium text-gray-300 mb-1">Expected Delivery</label><input type="date" id="po-delivery-date" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
                 </div>
                 <div class="flex justify-end space-x-4 mt-6">
                     <button type="button" id="cancel-po-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Cancel</button>
@@ -889,9 +890,9 @@
                 else if (item.quantity > item.maxQuantity && item.maxQuantity > 0) stockStatusClass = 'bg-yellow-500';
 
                 const itemEl = document.createElement('div');
-                itemEl.className = 'p-4 border border-gray-700 rounded-lg grid grid-cols-4 gap-4 items-center cursor-pointer hover:bg-gray-700/50 transition-colors';
+                itemEl.className = 'p-4 border border-gray-700 rounded-lg grid grid-cols-5 gap-4 items-center';
                 itemEl.innerHTML = `
-                    <div class="col-span-2">
+                    <div class="col-span-3 cursor-pointer hover:bg-gray-700/50" data-part-id="${doc.id}">
                         <p class="font-semibold text-white">${item.partDescription}</p>
                         <p class="text-sm text-gray-400">P/N: ${doc.id}</p>
                         <p class="text-sm text-gray-500">${item.manufacturer || 'N/A'} | Bin: ${item.binLocation || 'N/A'} | Date: ${item.dateCode || 'N/A'}</p>
@@ -900,9 +901,18 @@
                         <p class="text-2xl font-bold text-red-500">${item.quantity}</p>
                         <p class="text-xs text-gray-500">In Stock</p>
                     </div>
-                    <div class="flex justify-end"><span class="w-4 h-4 rounded-full ${stockStatusClass}" title="Stock Status"></span></div>
+                    <div class="flex justify-end items-center space-x-2">
+                        <button class="qr-code-btn p-2 rounded-md hover:bg-gray-600" data-part-id="${doc.id}">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h-1m-1-6v1m-5-4h1m-1 12h1m-6-11v1m-5 4h1m6 11v1M4 12H3m18 0h-1m-1-6h1M8 4v1m-4 7h1m11 6h1m-6-1V8a2 2 0 012-2h4a2 2 0 012 2v8a2 2 0 01-2 2h-4a2 2 0 01-2-2z"></path></svg>
+                        </button>
+                        <span class="w-4 h-4 rounded-full ${stockStatusClass}" title="Stock Status"></span>
+                    </div>
                 `;
-                itemEl.addEventListener('click', () => showAdjustStockModal(doc.id));
+                itemEl.querySelector('.col-span-3').addEventListener('click', (e) => showAdjustStockModal(e.currentTarget.dataset.partId));
+                itemEl.querySelector('.qr-code-btn').addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent triggering the adjust modal
+                    showDetailsModal(e.currentTarget.dataset.partId);
+                });
                 inventoryListEl.appendChild(itemEl);
             });
         }
@@ -947,7 +957,6 @@
                 await setDoc(itemDocRef, itemData, { merge: true });
                 showScanMessage(`Part ${partNumber} saved!`, 'success');
                 hideAddItemModal();
-                showDetailsModal(partNumber);
             } catch (error) { showScanMessage('Failed to save part.', 'error'); console.error(error) }
         }
         
@@ -1065,6 +1074,7 @@
                 partNumber: document.getElementById('po-part-number').value,
                 quantity: parseInt(document.getElementById('po-quantity').value, 10),
                 cost: parseFloat(document.getElementById('po-cost').value),
+                expectedDeliveryDate: document.getElementById('po-delivery-date').value,
                 status: 'Open',
                 createdAt: serverTimestamp()
             };
@@ -1104,11 +1114,12 @@
                 const isCompleted = po.status === 'Completed';
                 
                 poEl.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
                         <div><p class="font-semibold text-white">PO #: ${po.poNumber}</p><p class="text-sm text-gray-400">${po.date}</p></div>
                         <div><p class="font-semibold text-white">${po.vendor}</p><p class="text-sm text-gray-400">Vendor</p></div>
                         <div><p class="font-semibold text-white">${po.partNumber}</p><p class="text-sm text-gray-400">Part Number</p></div>
                         <div><p class="font-semibold text-white">${po.quantity} @ $${po.cost.toFixed(2)}</p><p class="text-sm text-gray-400">Order</p></div>
+                        <div><p class="font-semibold text-white">${po.expectedDeliveryDate || 'N/A'}</p><p class="text-sm text-gray-400">Expected</p></div>
                         <div class="text-right">
                            ${isCompleted 
                                 ? `<span class="px-3 py-1 text-sm font-semibold text-green-200 bg-green-800 rounded-full">Completed</span>`
@@ -1130,13 +1141,13 @@
             const poDocRef = doc(poCollectionRef, poId);
             
             try {
-                await runTransaction(db, async (transaction) => {
-                    const poDoc = await transaction.get(poDocRef);
-                    if (!poDoc.exists()) {
-                        throw "PO does not exist!";
-                    }
+                const poDoc = await getDoc(poDocRef);
+                if (!poDoc.exists()) {
+                    throw "PO does not exist!";
+                }
+                const poData = poDoc.data();
 
-                    const poData = poDoc.data();
+                await runTransaction(db, async (transaction) => {
                     const itemDocRef = doc(inventoryCollectionRef, poData.partNumber);
                     
                     transaction.update(itemDocRef, {
@@ -1147,8 +1158,7 @@
 
                     transaction.update(poDocRef, { status: 'Completed' });
                 });
-                const poDoc = await getDoc(poDocRef); // Re-fetch to get the PO number for the message
-                showScanMessage(`PO #${poDoc.data().poNumber} received and stock updated.`, 'success');
+                showScanMessage(`PO #${poData.poNumber} received and stock updated.`, 'success');
             } catch (error) {
                 console.error("Error receiving PO:", error);
                 showScanMessage('Failed to receive PO.', 'error');
