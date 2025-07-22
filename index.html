@@ -24,7 +24,30 @@
         @media print {
             body * { visibility: hidden; }
             #qr-code-print-area, #qr-code-print-area * { visibility: visible; }
-            #qr-code-print-area { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+            #qr-code-print-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                height: 100%; 
+                display: flex; 
+                flex-direction: column; 
+                justify-content: center; 
+                align-items: center;
+                background-color: white !important;
+                color: black !important;
+            }
+            #details-qr-code {
+                padding: 0 !important;
+            }
+            #details-qr-code img {
+                width: 150px !important;
+                height: 150px !important;
+            }
+            .print-info {
+                color: black !important;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -151,7 +174,21 @@
     </div>
 
     <!-- Item Details & QR Code Modal -->
-    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden"><div id="qr-code-print-area" class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md modal-enter border border-gray-700"><h3 id="details-title" class="text-2xl font-bold mb-2 text-white text-center">Part Details</h3><p id="details-part-number" class="text-center text-gray-400 mb-4"></p><div id="details-qr-code" class="bg-white p-4 rounded-lg w-64 h-64 mx-auto"></div><div class="text-center mt-4"><button id="print-qr-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">Print QR Code</button><button id="close-details-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors ml-4">Close</button></div></div></div>
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md modal-enter border border-gray-700">
+             <div id="qr-code-print-area" class="bg-gray-800 text-center">
+                 <h3 id="details-title" class="text-2xl font-bold mb-2 text-white print-info">Part Details</h3>
+                 <p id="details-part-number" class="text-gray-400 mb-2 print-info"></p>
+                 <p id="details-part-description" class="text-gray-300 mb-2 print-info"></p>
+                 <p id="details-bin-location" class="text-gray-300 mb-4 print-info"></p>
+                 <div id="details-qr-code" class="bg-white p-4 rounded-lg w-64 h-64 mx-auto"></div>
+             </div>
+             <div class="text-center mt-6">
+                 <button id="print-qr-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">Print QR Code</button>
+                 <button id="close-details-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors ml-4">Close</button>
+             </div>
+        </div>
+    </div>
 
     <!-- Manage Users Modal -->
     <div id="manage-users-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
@@ -243,6 +280,8 @@
         const printQrBtn = document.getElementById('print-qr-btn');
         const detailsQrCodeEl = document.getElementById('details-qr-code');
         const detailsPartNumberEl = document.getElementById('details-part-number');
+        const detailsPartDescriptionEl = document.getElementById('details-part-description');
+        const detailsBinLocationEl = document.getElementById('details-bin-location');
         const exportCsvBtn = document.getElementById('export-csv-btn');
         const importCsvBtn = document.getElementById('import-csv-btn');
         const importModal = document.getElementById('import-modal');
@@ -285,7 +324,6 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Simplified collection paths for easier rule management
                 inventoryCollectionRef = collection(db, "inventory");
                 usersCollectionRef = collection(db, "users");
 
@@ -301,7 +339,6 @@
                                     showApp();
                                 }
                             } else {
-                                // This case can happen if a user is deleted from the DB but not Auth
                                 showAuthScreen();
                             }
                         } catch (error) {
@@ -846,8 +883,20 @@
 
         function hideAddItemModal() { addItemModal.classList.add('hidden'); }
 
-        function showDetailsModal(partNumber) {
-            detailsPartNumberEl.textContent = `P/N: ${partNumber}`;
+        async function showDetailsModal(partNumber) {
+            const itemDocRef = doc(inventoryCollectionRef, partNumber);
+            try {
+                const docSnap = await getDoc(itemDocRef);
+                if (docSnap.exists()) {
+                    const item = docSnap.data();
+                    detailsPartNumberEl.textContent = `P/N: ${partNumber}`;
+                    detailsPartDescriptionEl.textContent = `${item.partDescription}`;
+                    detailsBinLocationEl.textContent = `Bin: ${item.binLocation || 'N/A'}`;
+                }
+            } catch (error) {
+                console.error("Error fetching item details:", error);
+            }
+            
             detailsQrCodeEl.innerHTML = '';
             try {
                 const qr = qrcode(4, 'L');
