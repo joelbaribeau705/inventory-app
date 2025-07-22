@@ -183,7 +183,13 @@
                 <div><label for="quantity" class="block text-sm font-medium text-gray-300 mb-1">Current Quantity</label><input type="number" id="quantity" name="quantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500" required></div>
                 <div><label for="minQuantity" class="block text-sm font-medium text-gray-300 mb-1">Min Stock Level</label><input type="number" id="minQuantity" name="minQuantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
                 <div class="sm:col-span-2"><label for="maxQuantity" class="block text-sm font-medium text-gray-300 mb-1">Max Stock Level</label><input type="number" id="maxQuantity" name="maxQuantity" min="0" value="0" class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:ring-red-500 focus:border-red-500"></div>
-                <div class="sm:col-span-2 flex justify-end space-x-4 mt-4"><button type="button" id="cancel-modal-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors">Cancel</button><button type="submit" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors">Save Part</button></div>
+                <div class="sm:col-span-2 flex justify-between space-x-4 mt-4">
+                    <button type="button" id="delete-item-btn" class="bg-red-800 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors">Delete</button>
+                    <div>
+                        <button type="button" id="cancel-modal-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors">Cancel</button>
+                        <button type="submit" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors ml-2">Save Part</button>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
@@ -275,7 +281,7 @@
     <!-- Add PO Modal -->
     <div id="add-po-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
         <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-lg modal-enter border border-gray-700">
-            <h3 class="text-2xl font-bold mb-6 text-white">Create Purchase Order</h3>
+            <h3 id="po-modal-title" class="text-2xl font-bold mb-6 text-white">Create Purchase Order</h3>
             <form id="add-po-form">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div><label for="po-number" class="block text-sm font-medium text-gray-300 mb-1">PO Number</label><input type="text" id="po-number" required class="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg"></div>
@@ -288,7 +294,7 @@
                 </div>
                 <div class="flex justify-end space-x-4 mt-6">
                     <button type="button" id="cancel-po-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Cancel</button>
-                    <button type="submit" class="bg-cyan-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-cyan-700">Create PO</button>
+                    <button type="submit" class="bg-cyan-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-cyan-700">Save PO</button>
                 </div>
             </form>
         </div>
@@ -311,6 +317,8 @@
         let currentUserManagementView = 'active';
         let isLoginMode = true;
         let currentAdjustingPartId = null;
+        let currentEditingPoId = null;
+        let currentEditingItemId = null;
 
         // --- DOM Element References ---
         const loadingScreen = document.getElementById('loading-screen');
@@ -375,6 +383,8 @@
         const cancelPoBtn = document.getElementById('cancel-po-btn');
         const addPoForm = document.getElementById('add-po-form');
         const poListEl = document.getElementById('po-list');
+        const poModalTitle = document.getElementById('po-modal-title');
+        const deleteItemBtn = document.getElementById('delete-item-btn');
 
 
         // --- App Initialization ---
@@ -466,9 +476,10 @@
                     setStock(amount);
                 }
             });
-            addPoBtn.addEventListener('click', () => addPoModal.classList.remove('hidden'));
+            addPoBtn.addEventListener('click', showAddPoModal);
             cancelPoBtn.addEventListener('click', () => addPoModal.classList.add('hidden'));
             addPoForm.addEventListener('submit', handleAddPo);
+            deleteItemBtn.addEventListener('click', handleDeleteItem);
         }
 
         // --- UI Control ---
@@ -902,6 +913,9 @@
                         <p class="text-xs text-gray-500">In Stock</p>
                     </div>
                     <div class="flex justify-end items-center space-x-2">
+                        <button class="edit-item-btn p-2 rounded-md hover:bg-gray-600" data-part-id="${doc.id}">
+                            <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg>
+                        </button>
                         <button class="qr-code-btn p-2 rounded-md hover:bg-gray-600" data-part-id="${doc.id}">
                             <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h-1m-1-6v1m-5-4h1m-1 12h1m-6-11v1m-5 4h1m6 11v1M4 12H3m18 0h-1m-1-6h1M8 4v1m-4 7h1m11 6h1m-6-1V8a2 2 0 012-2h4a2 2 0 012 2v8a2 2 0 01-2 2h-4a2 2 0 01-2-2z"></path></svg>
                         </button>
@@ -910,8 +924,12 @@
                 `;
                 itemEl.querySelector('.col-span-3').addEventListener('click', (e) => showAdjustStockModal(e.currentTarget.dataset.partId));
                 itemEl.querySelector('.qr-code-btn').addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent triggering the adjust modal
+                    e.stopPropagation(); 
                     showDetailsModal(e.currentTarget.dataset.partId);
+                });
+                itemEl.querySelector('.edit-item-btn').addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    handleEditItem(e.currentTarget.dataset.partId);
                 });
                 inventoryListEl.appendChild(itemEl);
             });
@@ -950,12 +968,17 @@
             };
             const itemDocRef = doc(inventoryCollectionRef, partNumber);
             try {
-                const docSnap = await getDoc(itemDocRef);
-                if (!docSnap.exists()) {
-                    itemData.createdAt = serverTimestamp();
+                if (currentEditingItemId) {
+                     await setDoc(itemDocRef, itemData, { merge: true });
+                     showScanMessage(`Part ${partNumber} updated!`, 'success');
+                } else {
+                    const docSnap = await getDoc(itemDocRef);
+                    if (!docSnap.exists()) {
+                        itemData.createdAt = serverTimestamp();
+                    }
+                    await setDoc(itemDocRef, itemData, { merge: true });
+                    showScanMessage(`Part ${partNumber} saved!`, 'success');
                 }
-                await setDoc(itemDocRef, itemData, { merge: true });
-                showScanMessage(`Part ${partNumber} saved!`, 'success');
                 hideAddItemModal();
             } catch (error) { showScanMessage('Failed to save part.', 'error'); console.error(error) }
         }
@@ -973,14 +996,60 @@
             setTimeout(() => { scanResultEl.textContent = ''; }, 5000);
         }
 
-        function showAddItemModal(partNumber = null) {
+        function showAddItemModal() {
+            currentEditingItemId = null;
             addItemForm.reset();
             partNumberInput.disabled = false;
-            if (partNumber) { partNumberInput.value = partNumber; }
+            modalTitle.textContent = "Add New Inventory Part";
+            deleteItemBtn.classList.add('hidden');
             addItemModal.classList.remove('hidden');
         }
 
         function hideAddItemModal() { addItemModal.classList.add('hidden'); }
+        
+        async function handleEditItem(partId) {
+            currentEditingItemId = partId;
+            const itemDocRef = doc(inventoryCollectionRef, partId);
+            try {
+                const docSnap = await getDoc(itemDocRef);
+                if (docSnap.exists()) {
+                    const item = docSnap.data();
+                    partNumberInput.value = partId;
+                    partNumberInput.disabled = true;
+                    document.getElementById('partDescription').value = item.partDescription || '';
+                    document.getElementById('manufacturer').value = item.manufacturer || '';
+                    document.getElementById('binLocation').value = item.binLocation || '';
+                    document.getElementById('dateCode').value = item.dateCode || '';
+                    document.getElementById('cost').value = item.cost || 0;
+                    document.getElementById('quantity').value = item.quantity || 0;
+                    document.getElementById('minQuantity').value = item.minQuantity || 0;
+                    document.getElementById('maxQuantity').value = item.maxQuantity || 0;
+                    
+                    modalTitle.textContent = "Edit Inventory Part";
+                    deleteItemBtn.classList.remove('hidden');
+                    addItemModal.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("Error fetching item for edit:", error);
+            }
+        }
+
+        async function handleDeleteItem() {
+            if (!currentEditingItemId) return;
+            const confirmed = prompt(`To confirm deletion of part ${currentEditingItemId}, please type DELETE and press OK. This cannot be undone.`);
+            if (confirmed === "DELETE") {
+                try {
+                    await deleteDoc(doc(inventoryCollectionRef, currentEditingItemId));
+                    showScanMessage(`Part ${currentEditingItemId} deleted.`, 'success');
+                    hideAddItemModal();
+                } catch (error) {
+                    console.error("Error deleting item:", error);
+                    showScanMessage('Failed to delete item.', 'error');
+                }
+            } else {
+                showScanMessage('Deletion cancelled.', 'info');
+            }
+        }
 
         async function showDetailsModal(partNumber) {
             const itemDocRef = doc(inventoryCollectionRef, partNumber);
@@ -1064,6 +1133,13 @@
                 renderPurchaseOrders(snapshot.docs);
             });
         }
+        
+        function showAddPoModal() {
+            currentEditingPoId = null;
+            addPoForm.reset();
+            poModalTitle.textContent = "Create Purchase Order";
+            addPoModal.classList.remove('hidden');
+        }
 
         async function handleAddPo(e) {
             e.preventDefault();
@@ -1076,7 +1152,7 @@
                 cost: parseFloat(document.getElementById('po-cost').value),
                 expectedDeliveryDate: document.getElementById('po-delivery-date').value,
                 status: 'Open',
-                createdAt: serverTimestamp()
+                lastUpdated: serverTimestamp()
             };
 
             const itemDocRef = doc(inventoryCollectionRef, poData.partNumber);
@@ -1087,13 +1163,21 @@
             }
 
             try {
-                await addDoc(poCollectionRef, poData);
-                showScanMessage(`PO #${poData.poNumber} created successfully.`, 'success');
+                if (currentEditingPoId) {
+                    const poDocRef = doc(poCollectionRef, currentEditingPoId);
+                    await updateDoc(poDocRef, poData);
+                    showScanMessage(`PO #${poData.poNumber} updated successfully.`, 'success');
+                } else {
+                    poData.createdAt = serverTimestamp();
+                    await addDoc(poCollectionRef, poData);
+                    showScanMessage(`PO #${poData.poNumber} created successfully.`, 'success');
+                }
+                
                 addPoForm.reset();
                 addPoModal.classList.add('hidden');
             } catch (error) {
-                console.error("Error creating PO:", error);
-                showScanMessage('Failed to create PO. Check permissions and console.', 'error');
+                console.error("Error saving PO:", error);
+                showScanMessage('Failed to save PO. Check permissions and console.', 'error');
             }
         }
 
@@ -1114,26 +1198,70 @@
                 const isCompleted = po.status === 'Completed';
                 
                 poEl.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                    <div class="grid grid-cols-1 md:grid-cols-7 gap-4 items-center">
                         <div><p class="font-semibold text-white">PO #: ${po.poNumber}</p><p class="text-sm text-gray-400">${po.date}</p></div>
                         <div><p class="font-semibold text-white">${po.vendor}</p><p class="text-sm text-gray-400">Vendor</p></div>
                         <div><p class="font-semibold text-white">${po.partNumber}</p><p class="text-sm text-gray-400">Part Number</p></div>
                         <div><p class="font-semibold text-white">${po.quantity} @ $${po.cost.toFixed(2)}</p><p class="text-sm text-gray-400">Order</p></div>
                         <div><p class="font-semibold text-white">${po.expectedDeliveryDate || 'N/A'}</p><p class="text-sm text-gray-400">Expected</p></div>
-                        <div class="text-right">
+                        <div class="text-center">
                            ${isCompleted 
                                 ? `<span class="px-3 py-1 text-sm font-semibold text-green-200 bg-green-800 rounded-full">Completed</span>`
-                                : `<button data-id="${doc.id}" class="receive-po-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Receive Order</button>`
+                                : `<span class="px-3 py-1 text-sm font-semibold text-yellow-200 bg-yellow-800 rounded-full">Open</span>`
                            }
+                        </div>
+                        <div class="text-right flex space-x-2 justify-end">
+                           ${!isCompleted ? `<button data-id="${doc.id}" class="edit-po-btn bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500">Edit</button>` : ''}
+                           ${!isCompleted ? `<button data-id="${doc.id}" class="receive-po-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Receive</button>` : ''}
+                           <button data-id="${doc.id}" class="delete-po-btn bg-red-800 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">Delete</button>
                         </div>
                     </div>
                 `;
                 poListEl.appendChild(poEl);
             });
 
-            document.querySelectorAll('.receive-po-btn').forEach(btn => {
-                btn.addEventListener('click', handleReceiveOrder);
-            });
+            document.querySelectorAll('.receive-po-btn').forEach(btn => btn.addEventListener('click', handleReceiveOrder));
+            document.querySelectorAll('.edit-po-btn').forEach(btn => btn.addEventListener('click', handleEditPo));
+            document.querySelectorAll('.delete-po-btn').forEach(btn => btn.addEventListener('click', handleDeletePo));
+        }
+        
+        async function handleEditPo(e) {
+            const poId = e.target.dataset.id;
+            currentEditingPoId = poId;
+            const poDocRef = doc(poCollectionRef, poId);
+            try {
+                const docSnap = await getDoc(poDocRef);
+                if (docSnap.exists()) {
+                    const po = docSnap.data();
+                    document.getElementById('po-number').value = po.poNumber;
+                    document.getElementById('po-date').value = po.date;
+                    document.getElementById('po-vendor').value = po.vendor;
+                    document.getElementById('po-part-number').value = po.partNumber;
+                    document.getElementById('po-quantity').value = po.quantity;
+                    document.getElementById('po-cost').value = po.cost;
+                    document.getElementById('po-delivery-date').value = po.expectedDeliveryDate;
+                    poModalTitle.textContent = "Edit Purchase Order";
+                    addPoModal.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("Error fetching PO for edit:", error);
+            }
+        }
+        
+        async function handleDeletePo(e) {
+            const poId = e.target.dataset.id;
+            const confirmed = prompt(`To confirm deletion of this purchase order, please type DELETE and press OK. This cannot be undone.`);
+            if (confirmed === "DELETE") {
+                try {
+                    await deleteDoc(doc(poCollectionRef, poId));
+                    showScanMessage(`Purchase order deleted.`, 'success');
+                } catch (error) {
+                    console.error("Error deleting PO:", error);
+                    showScanMessage('Failed to delete purchase order.', 'error');
+                }
+            } else {
+                showScanMessage('Deletion cancelled.', 'info');
+            }
         }
 
         async function handleReceiveOrder(e) {
