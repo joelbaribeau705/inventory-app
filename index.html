@@ -285,7 +285,6 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Simplified collection paths for easier rule management
                 inventoryCollectionRef = collection(db, "inventory");
                 usersCollectionRef = collection(db, "users");
 
@@ -301,11 +300,12 @@
                                     showApp();
                                 }
                             } else {
-                                // This case can happen if a user is deleted from the DB but not Auth
                                 showAuthScreen();
                             }
                         } catch (error) {
                             console.error("Error getting user profile:", error);
+                            authError.textContent = "Error checking user role. Please try again.";
+                            await signOut(auth);
                             showAuthScreen();
                         }
                     } else {
@@ -445,9 +445,22 @@
         }
         
         async function setupNewUser(user) {
-            const usersQuery = query(usersCollectionRef);
-            const userDocs = await getDocs(usersQuery);
-            const role = userDocs.empty ? 'admin' : 'pending';
+            const adminConfigRef = doc(db, "system", "config");
+            let role = 'pending';
+            
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const configDoc = await transaction.get(adminConfigRef);
+                    if (!configDoc.exists()) {
+                        role = 'admin';
+                        transaction.set(adminConfigRef, { adminAssigned: true });
+                    }
+                });
+            } catch (e) {
+                // If transaction fails, it's likely because rules blocked it.
+                // This means an admin already exists, so the role remains 'pending'.
+                console.log("Admin check transaction failed (this is expected for non-first users).");
+            }
 
             const userDocRef = doc(usersCollectionRef, user.uid);
             await setDoc(userDocRef, {
