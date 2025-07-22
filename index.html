@@ -922,9 +922,9 @@
                         <p class="text-xs text-gray-500">In Stock</p>
                     </div>
                     <div class="flex justify-end items-center space-x-2">
-                        <button class="edit-item-btn p-2 rounded-md hover:bg-gray-600" data-part-id="${doc.id}">
+                        ${currentUser.role === 'admin' ? `<button class="edit-item-btn p-2 rounded-md hover:bg-gray-600" data-part-id="${doc.id}">
                             <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg>
-                        </button>
+                        </button>` : ''}
                         <button class="qr-code-btn p-2 rounded-md hover:bg-gray-600" data-part-id="${doc.id}">
                             <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h-1m-1-6v1m-5-4h1m-1 12h1m-6-11v1m-5 4h1m6 11v1M4 12H3m18 0h-1m-1-6h1M8 4v1m-4 7h1m11 6h1m-6-1V8a2 2 0 012-2h4a2 2 0 012 2v8a2 2 0 01-2 2h-4a2 2 0 01-2-2z"></path></svg>
                         </button>
@@ -936,10 +936,12 @@
                     e.stopPropagation(); 
                     showDetailsModal(e.currentTarget.dataset.partId);
                 });
-                itemEl.querySelector('.edit-item-btn').addEventListener('click', (e) => {
-                    e.stopPropagation(); 
-                    handleEditItem(e.currentTarget.dataset.partId);
-                });
+                if (currentUser.role === 'admin') {
+                    itemEl.querySelector('.edit-item-btn').addEventListener('click', (e) => {
+                        e.stopPropagation(); 
+                        handleEditItem(e.currentTarget.dataset.partId);
+                    });
+                }
                 inventoryListEl.appendChild(itemEl);
             });
         }
