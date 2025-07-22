@@ -149,7 +149,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp, increment, getDocs, deleteDoc, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Global State ---
@@ -205,8 +205,18 @@
         
         async function setupFirebase() {
             try {
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-inventory-app';
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                // PASTE YOUR FIREBASE CONFIG OBJECT HERE
+                const firebaseConfig = {
+                  apiKey: "AIzaSyCrpnw-qBMAk7idkd6SRMmFNa0vRSKsNGM",
+                  authDomain: "on42-inventory-app.firebaseapp.com",
+                  projectId: "on42-inventory-app",
+                  storageBucket: "on42-inventory-app.firebasestorage.app",
+                  messagingSenderId: "852160968126",
+                  appId: "1:852160968126:web:a0819d25ddaefeed86b5ef",
+                  measurementId: "G-ZG3S421XYN"
+                };
+
+                appId = firebaseConfig.appId;
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -216,32 +226,51 @@
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        let userProfile = await getUserProfile(user.uid);
-                        if (!userProfile) {
-                            userProfile = await setupNewUser(user);
-                        }
-                        
-                        if (userProfile) {
-                            currentUser = { uid: user.uid, ...userProfile };
-                            showApp();
-                        } else {
-                            loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Could not load user profile. Please refresh.</div>`;
+                        try {
+                            let userProfile = await getUserProfile(user.uid);
+                            if (!userProfile) {
+                                userProfile = await setupNewUser(user);
+                            }
+                            
+                            if (userProfile) {
+                                currentUser = { uid: user.uid, ...userProfile };
+                                showApp();
+                            } else {
+                                loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Could not load user profile. Please refresh.</div>`;
+                            }
+                        } catch (error) {
+                            console.error("Error during user profile setup:", error);
+                            if (error.code === 'unavailable' || error.message.includes('offline')) {
+                                loadingScreen.innerHTML = `<div class="text-center text-red-400 p-4">
+                                    <h3 class="font-bold text-lg">Connection Error</h3>
+                                    <p>Could not connect to the database. The client is offline.</p>
+                                    <p class="mt-2 text-sm text-gray-400">Please check your internet connection and ensure your Firestore security rules are correct.</p>
+                                </div>`;
+                            } else {
+                                loadingScreen.innerHTML = `<div class="text-center text-red-400">An error occurred: ${error.message}</div>`;
+                            }
                         }
                     } else {
-                        currentUser = null;
-                        showLoadingScreen();
+                        signInAnonymously(auth).catch(handleAuthError);
                     }
                 });
-
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
                 document.body.innerHTML = `<div class="text-center p-8 text-red-500">Error initializing the application. Please check the console.</div>`;
+            }
+        }
+
+        function handleAuthError(error) {
+            console.error("Authentication Error:", error);
+            if (error.code === 'auth/configuration-not-found') {
+                loadingScreen.innerHTML = `<div class="text-center text-red-400 p-4">
+                    <h3 class="font-bold text-lg">Authentication Error</h3>
+                    <p>Anonymous sign-in is not enabled for this project.</p>
+                    <p class="mt-2 text-sm text-gray-400">Please go to your Firebase Console -> Authentication -> Sign-in method, and enable the 'Anonymous' provider.</p>
+                </div>`;
+            } else {
+                loadingScreen.innerHTML = `<div class="text-center text-red-400">Error: Could not authenticate. Please check your connection and refresh.</div>`;
             }
         }
 
@@ -531,6 +560,14 @@
                 }
                 
                 renderInventory(inventoryDocs);
+            }, (error) => {
+                console.error("Firestore snapshot error:", error);
+                 loadingScreen.innerHTML = `<div class="text-center text-red-400 p-4">
+                    <h3 class="font-bold text-lg">Database Error</h3>
+                    <p>Could not read from the database. This is often due to incorrect Firestore security rules.</p>
+                    <p class="mt-2 text-sm text-gray-400">Please double-check your security rules in the Firebase Console.</p>
+                </div>`;
+                showLoadingScreen();
             });
         }
         
