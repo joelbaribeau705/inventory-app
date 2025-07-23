@@ -155,6 +155,17 @@
                     <h2 class="text-2xl font-semibold text-white">Purchase Orders</h2>
                     <button id="add-po-btn" class="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors">+ New PO</button>
                 </div>
+                <!-- Tabs for PO View -->
+                <div class="border-b border-gray-700 mb-4">
+                    <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                        <button id="po-tab-open" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-cyan-500 text-white">
+                            Open POs
+                        </button>
+                        <button id="po-tab-completed" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 hover:text-white hover:border-gray-300">
+                            Completed POs
+                        </button>
+                    </nav>
+                </div>
                 <div id="po-list" class="space-y-3 max-h-[50vh] overflow-y-auto pr-2"></div>
             </div>
 
@@ -305,6 +316,21 @@
         </div>
     </div>
 
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md modal-enter border border-gray-700">
+            <h3 id="confirm-title" class="text-2xl font-bold mb-4 text-white">Confirm Action</h3>
+            <p id="confirm-message" class="text-gray-300 mb-6"></p>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-confirm-btn" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500">Cancel</button>
+                <button id="confirm-btn" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Area -->
+    <div id="notification-area" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
 
     <!-- Firebase SDK -->
     <script type="module">
@@ -318,12 +344,15 @@
         let isScannerRunning = false;
         let inventoryCollectionRef, usersCollectionRef, poCollectionRef;
         let inventoryDocs = [];
+        let poDocs = [];
         let currentView = 'all';
+        let currentPoView = 'Open';
         let currentUserManagementView = 'active';
         let isLoginMode = true;
         let currentAdjustingPartId = null;
         let currentEditingPoId = null;
         let currentEditingItemId = null;
+        let confirmAction = null;
 
         // --- DOM Element References ---
         const loadingScreen = document.getElementById('loading-screen');
@@ -342,7 +371,6 @@
         const closeUsersModalBtn = document.getElementById('close-users-modal-btn');
         const usersListContainer = document.getElementById('users-list-container');
         const startScanBtn = document.getElementById('scan-btn');
-        const scanResultEl = document.getElementById('scan-result');
         const inventoryListEl = document.getElementById('inventory-list');
         const addItemBtn = document.getElementById('add-item-btn');
         const addItemModal = document.getElementById('add-item-modal');
@@ -393,6 +421,14 @@
         const scannerModal = document.getElementById('scanner-modal');
         const closeScannerBtn = document.getElementById('close-scanner-btn');
         const scannerStatus = document.getElementById('scanner-status');
+        const modalTitle = document.getElementById('modal-title');
+        const poTabOpen = document.getElementById('po-tab-open');
+        const poTabCompleted = document.getElementById('po-tab-completed');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmTitle = document.getElementById('confirm-title');
+        const confirmMessage = document.getElementById('confirm-message');
+        const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+        const confirmBtn = document.getElementById('confirm-btn');
 
 
         // --- App Initialization ---
@@ -489,6 +525,14 @@
             cancelPoBtn.addEventListener('click', () => addPoModal.classList.add('hidden'));
             addPoForm.addEventListener('submit', handleAddPo);
             deleteItemBtn.addEventListener('click', handleDeleteItem);
+            poTabOpen.addEventListener('click', () => setPoView('Open'));
+            poTabCompleted.addEventListener('click', () => setPoView('Completed'));
+            cancelConfirmBtn.addEventListener('click', () => confirmModal.classList.add('hidden'));
+            confirmBtn.addEventListener('click', () => {
+                if (confirmAction) {
+                    confirmAction();
+                }
+            });
         }
 
         // --- UI Control ---
@@ -550,6 +594,22 @@
                 tabAll.classList.remove('border-red-500', 'text-white');
             }
             renderInventory(inventoryDocs);
+        }
+        
+        function setPoView(view) {
+            currentPoView = view;
+            if (view === 'Open') {
+                poTabOpen.classList.add('border-cyan-500', 'text-white');
+                poTabOpen.classList.remove('border-transparent', 'text-gray-400');
+                poTabCompleted.classList.add('border-transparent', 'text-gray-400');
+                poTabCompleted.classList.remove('border-cyan-500', 'text-white');
+            } else { // 'Completed'
+                poTabCompleted.classList.add('border-cyan-500', 'text-white');
+                poTabCompleted.classList.remove('border-transparent', 'text-gray-400');
+                poTabOpen.classList.add('border-transparent', 'text-gray-400');
+                poTabOpen.classList.remove('border-cyan-500', 'text-white');
+            }
+            renderPurchaseOrders(poDocs);
         }
         
         function setUserManagementView(view) {
@@ -702,9 +762,9 @@
         async function handleDeleteUser(e) {
             const uidToDelete = e.target.dataset.uid;
             const emailToDelete = e.target.dataset.email;
-            const confirmed = prompt(`To confirm deletion of user ${emailToDelete}, please type DELETE and press OK. This cannot be undone.`);
-            if (confirmed === "DELETE") {
-                 try {
+            
+            confirmAction = async () => {
+                try {
                     await deleteDoc(doc(usersCollectionRef, uidToDelete));
                     showScanMessage(`User deleted.`, 'success');
                     showUsersModal();
@@ -712,9 +772,13 @@
                     console.error("Error deleting user:", error);
                     showScanMessage('Failed to delete user.', 'error');
                 }
-            } else {
-                showScanMessage('Deletion cancelled.', 'info');
-            }
+                confirmModal.classList.add('hidden');
+                confirmAction = null;
+            };
+            
+            confirmTitle.textContent = "Confirm User Deletion";
+            confirmMessage.textContent = `Are you sure you want to permanently delete the user ${emailToDelete}? This action cannot be undone.`;
+            confirmModal.classList.remove('hidden');
         }
 
         // --- CSV Import/Export ---
@@ -1008,16 +1072,29 @@
         }
         
         function showScanMessage(message, type = 'info') {
-            scanResultEl.textContent = message;
-            let classes = 'mt-4 p-4 rounded-lg text-center font-medium border ';
+            const notificationArea = document.getElementById('notification-area');
+            if (!notificationArea) return;
+
+            const notificationEl = document.createElement('div');
+            
+            let classes = 'p-4 rounded-lg text-center font-medium border shadow-lg transition-opacity duration-300 ease-in-out ';
             switch(type) {
                 case 'success': classes += 'bg-green-900/50 text-green-300 border-green-700'; break;
                 case 'warning': classes += 'bg-yellow-900/50 text-yellow-300 border-yellow-700'; break;
                 case 'error': classes += 'bg-red-900/50 text-red-300 border-red-700'; break;
                 default: classes += 'bg-gray-700 text-gray-200 border-gray-600';
             }
-            scanResultEl.className = classes;
-            setTimeout(() => { scanResultEl.textContent = ''; }, 5000);
+            notificationEl.className = classes;
+            notificationEl.textContent = message;
+
+            notificationArea.appendChild(notificationEl);
+
+            setTimeout(() => {
+                notificationEl.classList.add('opacity-0');
+                notificationEl.addEventListener('transitionend', () => {
+                    notificationEl.remove();
+                });
+            }, 5000);
         }
 
         function showAddItemModal() {
@@ -1060,8 +1137,8 @@
 
         async function handleDeleteItem() {
             if (!currentEditingItemId) return;
-            const confirmed = prompt(`To confirm deletion of part ${currentEditingItemId}, please type DELETE and press OK. This cannot be undone.`);
-            if (confirmed === "DELETE") {
+            
+            confirmAction = async () => {
                 try {
                     await deleteDoc(doc(inventoryCollectionRef, currentEditingItemId));
                     showScanMessage(`Part ${currentEditingItemId} deleted.`, 'success');
@@ -1070,9 +1147,13 @@
                     console.error("Error deleting item:", error);
                     showScanMessage('Failed to delete item.', 'error');
                 }
-            } else {
-                showScanMessage('Deletion cancelled.', 'info');
-            }
+                confirmModal.classList.add('hidden');
+                confirmAction = null;
+            };
+
+            confirmTitle.textContent = "Confirm Part Deletion";
+            confirmMessage.textContent = `Are you sure you want to permanently delete part ${currentEditingItemId}? This action cannot be undone.`;
+            confirmModal.classList.remove('hidden');
         }
 
         async function showDetailsModal(partNumber) {
@@ -1154,7 +1235,8 @@
         // --- PO Functions ---
         function setupPoListener() {
             onSnapshot(query(poCollectionRef), (snapshot) => {
-                renderPurchaseOrders(snapshot.docs);
+                poDocs = snapshot.docs;
+                renderPurchaseOrders(poDocs);
             });
         }
         
@@ -1206,13 +1288,14 @@
         }
 
         function renderPurchaseOrders(docs) {
+            let docsToRender = docs.filter(doc => doc.data().status === currentPoView);
             poListEl.innerHTML = '';
-            if (docs.length === 0) {
-                poListEl.innerHTML = `<p class="text-gray-500 text-center py-8">No purchase orders found.</p>`;
+            if (docsToRender.length === 0) {
+                poListEl.innerHTML = `<p class="text-gray-500 text-center py-8">No ${currentPoView.toLowerCase()} purchase orders found.</p>`;
                 return;
             }
 
-            const sortedDocs = docs.sort((a, b) => b.data().createdAt.seconds - a.data().createdAt.seconds);
+            const sortedDocs = docsToRender.sort((a, b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0));
 
             sortedDocs.forEach(doc => {
                 const po = doc.data();
@@ -1236,7 +1319,7 @@
                            <div class="flex space-x-2">
                                ${!isCompleted ? `<button data-id="${doc.id}" class="edit-po-btn bg-gray-600 text-white font-bold py-1 px-3 rounded-lg hover:bg-gray-500">Edit</button>` : ''}
                                ${!isCompleted ? `<button data-id="${doc.id}" class="receive-po-btn bg-green-600 text-white font-bold py-1 px-3 rounded-lg hover:bg-green-700">Receive</button>` : ''}
-                               <button data-id="${doc.id}" class="delete-po-btn bg-red-800 text-white font-bold py-1 px-3 rounded-lg hover:bg-red-700">Delete</button>
+                               ${currentUser.role === 'admin' ? `<button data-id="${doc.id}" class="delete-po-btn bg-red-800 text-white font-bold py-1 px-3 rounded-lg hover:bg-red-700">Delete</button>` : ''}
                            </div>
                         </div>
                     </div>
@@ -1274,8 +1357,7 @@
         
         async function handleDeletePo(e) {
             const poId = e.target.dataset.id;
-            const confirmed = prompt(`To confirm deletion of this purchase order, please type DELETE and press OK. This cannot be undone.`);
-            if (confirmed === "DELETE") {
+            confirmAction = async () => {
                 try {
                     await deleteDoc(doc(poCollectionRef, poId));
                     showScanMessage(`Purchase order deleted.`, 'success');
@@ -1283,9 +1365,13 @@
                     console.error("Error deleting PO:", error);
                     showScanMessage('Failed to delete purchase order.', 'error');
                 }
-            } else {
-                showScanMessage('Deletion cancelled.', 'info');
-            }
+                confirmModal.classList.add('hidden');
+                confirmAction = null;
+            };
+
+            confirmTitle.textContent = "Confirm PO Deletion";
+            confirmMessage.textContent = `Are you sure you want to permanently delete this purchase order? This action cannot be undone.`;
+            confirmModal.classList.remove('hidden');
         }
 
         async function handleReceiveOrder(e) {
